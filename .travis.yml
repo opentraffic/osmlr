@@ -6,11 +6,10 @@ compiler:
 env:
 before_install:
   - export LD_LIBRARY_PATH=.:`cat /etc/ld.so.conf.d/* | grep -vF "#" | tr "\\n" ":" | sed -e "s/:$//g"`
-  - sudo add-apt-repository ppa:valhalla-routing/valhalla
+  - sudo add-apt-repository -y ppa:valhalla-routing/valhalla
   - sudo apt-get update
-  - sudo apt-get install libvalhalla-dev valhalla-bin
 install:
-  - sudo apt-get install -y -qq autoconf automake libtool make gcc g++ lcov
+  - sudo apt-get install -y -qq autoconf automake libtool make gcc g++ lcov libvalhalla-dev valhalla-bin
 before_script:
 script:
   ./autogen.sh && ./configure --enable-coverage && make test -j$(nproc)
