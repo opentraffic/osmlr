@@ -6,6 +6,7 @@ compiler:
 env:
 before_install:
   - export LD_LIBRARY_PATH=.:`cat /etc/ld.so.conf.d/* | grep -vF "#" | tr "\\n" ":" | sed -e "s/:$//g"`
+  - sudo add-apt-repository -y ppa:kevinkreiser/prime-server
   - sudo add-apt-repository -y ppa:valhalla-routing/valhalla
   - sudo apt-get update
 install:
