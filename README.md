@@ -1,9 +1,12 @@
-TODO:
+OSMLR
+-----
+
+Applications for generating linear references (traffic segments) given OSM data in the form of Valhalla routing tiles.
 
 Build Status
 ------------
 
-[![Circle CI](https://circleci.com/gh/opentraffic/osmlr.svg?style=svg)](https://circleci.com/gh/opentraffic/osmlr)
+[![Build Status](https://travis-ci.org/opentraffic/osmlr.svg?branch=master)](https://travis-ci.org/opentraffic/osmlr)
 
 Building and Running
 --------------------
