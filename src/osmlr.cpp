@@ -181,6 +181,12 @@ bool check_access(vb::GraphReader &reader, const vb::merge::path &p) {
     if (edge->shortcut()) {
       return false;
     }
+
+    // if the edge predicate is false for any edge, then drop the whole
+    // path.
+    if (edge_pred(edge) == false) {
+      return false;
+    }
   }
 
   // be permissive here, as we do want to collect traffic on most vehicular
@@ -250,7 +256,7 @@ int main(int argc, char** argv) {
 
   if (vm.count("output-tiles")) {
     std::string dir = vm["output-tiles"].as<std::string>();
-    output_tiles = std::make_shared<osmlr::output::tiles>(dir, reader);
+    output_tiles = std::make_shared<osmlr::output::tiles>(reader, dir, max_fds);
   }
 
   if (vm.count("output-geojson")) {
