@@ -28,7 +28,7 @@ m4/lt~obsolete.m4
 libtool
 
 # built objects
-osmlr
+/osmlr
 *.o
 .deps/
 .dirstamp
@@ -52,3 +52,7 @@ coverage/
 .cproject
 .project
 .settings
+
+# generated protobuf code
+include/proto/
+src/proto/

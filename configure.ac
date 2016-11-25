@@ -30,7 +30,11 @@ AC_LANG_CPLUSPLUS
 AX_CXX_COMPILE_STDCXX_11([noext],[mandatory])
 
 # require other valhalla dependencies
-PKG_CHECK_MODULES([VALHALLA_DEPS], [libvalhalla >= 2.0.0])
+#PKG_CHECK_MODULES([VALHALLA_DEPS], [libvalhalla >= 2.0.0])
+PKG_CHECK_MODULES([VALHALLA_DEPS], [libvalhalla_baldr = unstable libvalhalla_midgard = unstable])
+
+# check for protocol buffers compiler and libraries
+REQUIRE_PROTOC
 
 # check for boost and the parts we use form it
 AX_BOOST_BASE([1.54], , [AC_MSG_ERROR([cannot find Boost libraries, which are are required for building tools. Please install libboost-dev.])])
@@ -40,7 +44,7 @@ AX_BOOST_THREAD
 AX_BOOST_FILESYSTEM
 
 # check pkg-config dependencies
-#PKG_CHECK_MODULES([DEPS], [lib >= ])
+PKG_CHECK_MODULES([DEPS], [protobuf >= 2.4.0])
 
 # optionally enable coverage information
 CHECK_COVERAGE

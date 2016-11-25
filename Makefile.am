@@ -1,7 +1,7 @@
 ACLOCAL_AMFLAGS = -I m4
 AM_LDFLAGS = @BOOST_LDFLAGS@ @COVERAGE_LDFLAGS@
-AM_CPPFLAGS = -I@abs_srcdir@/include @BOOST_CPPFLAGS@ -Igenfiles
-AM_CXXFLAGS = -I@abs_srcdir@/include @COVERAGE_CXXFLAGS@ -Igenfiles
+AM_CPPFLAGS = -I@abs_srcdir@/include -I@abs_srcdir@/include/proto @BOOST_CPPFLAGS@ -Igenfiles
+AM_CXXFLAGS = -I@abs_srcdir@/include -I@abs_srcdir@/include/proto @COVERAGE_CXXFLAGS@ -Igenfiles
 LIBTOOL_DEPS = @LIBTOOL_DEPS@
 libtool: $(LIBTOOL_DEPS)
 	$(SHELL) ./config.status libtool
@@ -38,9 +38,14 @@ endif
 clean-genfiles:
 	-rm -rf genfiles
 
+# protobuf generated code
+PROTO_FILES := proto/segment.proto proto/tile.proto
+src/proto/%.pb.cc: proto/%.proto
+	@echo "PROTOC $<"; mkdir -p src/proto include/proto; @PROTOC_BIN@ -Iproto --cpp_out=include/proto $< && mv include/proto/$(@F) src/proto
+
 #distributed executables
 bin_PROGRAMS = osmlr
-osmlr_SOURCES = src/osmlr.cpp
+osmlr_SOURCES = src/osmlr.cpp src/proto/segment.pb.cc src/proto/tile.pb.cc src/output/output.cpp src/output/geojson.cpp src/output/tiles.cpp src/util/tile_writer.cpp
 osmlr_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_DEPS_CFLAGS) @BOOST_CPPFLAGS@
 osmlr_LDADD = $(DEPS_LIBS) $(VALHALLA_DEPS_LIBS) $(BOOST_PROGRAM_OPTIONS_LIB) $(BOOST_FILESYSTEM_LIB) $(BOOST_SYSTEM_LIB) $(BOOST_THREAD_LIB)
 
