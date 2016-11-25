@@ -30,8 +30,7 @@ AC_LANG_CPLUSPLUS
 AX_CXX_COMPILE_STDCXX_11([noext],[mandatory])
 
 # require other valhalla dependencies
-#PKG_CHECK_MODULES([VALHALLA_DEPS], [libvalhalla >= 2.0.0])
-PKG_CHECK_MODULES([VALHALLA_DEPS], [libvalhalla_baldr = unstable libvalhalla_midgard = unstable])
+PKG_CHECK_MODULES([VALHALLA_DEPS], [libvalhalla >= 2.0.1])
 
 # check for protocol buffers compiler and libraries
 REQUIRE_PROTOC
