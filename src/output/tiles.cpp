@@ -30,9 +30,12 @@ vb::RoadClass lowest_frc(vb::GraphReader &m_reader, const vb::merge::path &p) {
 }
 
 bool is_oneway(const vb::DirectedEdge *e) {
+  // TODO: make this configurable?
+  uint32_t vehicular = vb::kAutoAccess | vb::kTruckAccess |
+    vb::kTaxiAccess | vb::kBusAccess | vb::kHOVAccess;
   // TODO: don't need to find opposite edge, as this info alread in the
   // reverseaccess mask?
-  return e->reverseaccess() == 0;
+  return (e->reverseaccess() & vehicular) == 0;
 }
 
 enum class FormOfWay {
@@ -116,29 +119,39 @@ struct lrp {
 };
 
 vm::PointLL interp(vm::PointLL a, vm::PointLL b, double frac) {
-  return vm::PointLL(
-    a.lng() + ((b.lng() - a.lng()) * frac),
-    a.lat() + ((b.lat() - a.lat()) * frac));
+  return vm::PointLL(a.AffineCombination(1.0 - frac, frac, b));
 }
 
-std::vector<vm::PointLL> subsegment(const std::vector<vm::PointLL> &seg, uint32_t dist) {
+// chop the first "dist" length off seg, returning it as the result. this will
+// modify seg!
+std::vector<vm::PointLL> chop_subsegment(std::vector<vm::PointLL> &seg, uint32_t dist) {
   const size_t len = seg.size();
   assert(len > 1);
 
   std::vector<vm::PointLL> result;
   result.push_back(seg[0]);
   double d = 0.0;
-  for (size_t i = 1; i < len; ++i) {
+  size_t i = 1;
+  for (; i < len; ++i) {
     auto segdist = seg[i-1].Distance(seg[i]);
     if ((d + segdist) >= dist) {
       double frac = (dist - d) / segdist;
-      result.push_back(interp(seg[i-1], seg[i], frac));
+      auto midpoint = interp(seg[i-1], seg[i], frac);
+      result.push_back(midpoint);
+      // remove used part of seg.
+      seg.erase(seg.begin(), seg.begin() + (i - 1));
+      seg[0] = midpoint;
       break;
 
     } else {
       d += segdist;
       result.push_back(seg[i]);
     }
+  }
+
+  // used all of seg, and exited the loop by iteration rather than breaking out.
+  if (i == len) {
+    seg.clear();
   }
 
   return result;
@@ -153,6 +166,7 @@ std::vector<lrp> build_segment_descriptor(vb::GraphReader &reader, const vb::mer
   vb::GraphId last_node = p.m_start;
   vb::GraphId start_node = p.m_start;
   std::vector<vm::PointLL> shape;
+  vm::PointLL last_point_seen;
   vb::RoadClass start_frc, least_frc;
   FormOfWay start_fow;
 
@@ -164,10 +178,12 @@ std::vector<lrp> build_segment_descriptor(vb::GraphReader &reader, const vb::mer
     uint32_t edge_len = edge->length();
 
     if (edge_len + accumulated_length >= max_length && start_node != last_node) {
+      assert(shape.size() > 0);
       uint16_t bear = bearing(shape);
       seg.emplace_back(shape[0], bear, start_frc, start_fow, least_frc, accumulated_length);
       accumulated_length = 0;
       start_node = last_node;
+      last_point_seen = shape.back();
       shape.clear();
       start_frc = edge->classification();
       least_frc = start_frc;
@@ -192,7 +208,8 @@ std::vector<lrp> build_segment_descriptor(vb::GraphReader &reader, const vb::mer
         uint32_t end_dist = ((i+1) * edge_len) / num_segs;
         assert(end_dist - start_dist < max_length);
 
-        shape = subsegment(full_shape, start_dist);
+        shape = chop_subsegment(full_shape, end_dist);
+        assert(!shape.empty());
         uint16_t bear = bearing(shape);
 
         seg.emplace_back(shape[0], bear, frc, fow, frc, end_dist - start_dist);
@@ -200,6 +217,7 @@ std::vector<lrp> build_segment_descriptor(vb::GraphReader &reader, const vb::mer
 
       accumulated_length = 0;
       start_node = edge->endnode();
+      last_point_seen = shape.back();
       shape.clear();
 
     } else {
@@ -219,11 +237,15 @@ std::vector<lrp> build_segment_descriptor(vb::GraphReader &reader, const vb::mer
   }
 
   if (accumulated_length > 0) {
+    assert(shape.size() > 0);
     seg.emplace_back(shape[0], bearing(shape), start_frc, start_fow, least_frc, accumulated_length);
+    last_point_seen = shape.back();
   }
 
   // output last LRP
-  seg.emplace_back(shape[shape.size()-1], 0, start_frc, start_fow, least_frc, 0);
+  assert(last_point_seen.IsValid());
+  assert(last_point_seen.lat() != 0.0);
+  seg.emplace_back(last_point_seen, 0, start_frc, start_fow, least_frc, 0);
 
   return seg;
 }

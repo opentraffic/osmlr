@@ -178,7 +178,7 @@ bool check_access(vb::GraphReader &reader, const vb::merge::path &p) {
     access &= edge->forwardaccess();
 
     // if any edge is a shortcut, then drop the whole path
-    if (edge->shortcut()) {
+    if (edge->is_shortcut()) {
       return false;
     }
 
