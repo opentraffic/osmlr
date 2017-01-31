@@ -33,9 +33,11 @@ Therefore, the scheme described above is based on OpenLR with changes where appr
 
 This software, `osmlr`, creates OSMLR descriptors from Valhalla road data tiles. It starts by merging across adjacent Valhalla graph edges which distinguish properties which are important to Valhalla's routing algorithms, but not to the collection of traffic data. For example, Valhalla keeps separate edges for bridges and tunnels as these can have important restrictions for traffic. However, since the start of a bridge or tunnel does not represent a point at which the driver of a vehicle has choice - if there is no junction - then for traffic purposes it can be counted as the same section of road.
 
-For each merged sequence of edges, OSMLR will calculate the descriptor and output it in a tile.
+For each merged sequence of edges, OSMLR will calculate the descriptor and output it in a tile. Calculating the descriptor involves splitting up the merged sequence into a set of LRPs such that the distance between neighbouring LRPs is at most 15km. The properties are then calculated at each LRP, and stored in the descriptor.
 
-## OSMLR descriptor packaging and distribution
+Making sure that descriptors match only a single road is important, but currently unimplemented. This would mean matching the descriptor back to the road network and checking that it matched the original edges. Further, it is important to be _more_ specific than necessary for the input dataset, as there may be differences between the input dataset from OSM and the same area at a later date, or a different source of data.
+
+# OSMLR descriptor packaging and distribution
 
 OSMLR descriptors are packaged into separate levels of tiles, just like Valhalla road data tiles, which means that users can download only the subset of the data that they need. The descriptors and tiles are described in a Google Protocol Buffers description. This makes the output files relatively compact, gives a clear path for upgrades to the format and makes it easier to construct tools and libraries to access that data from many different programming languages.
 
@@ -43,3 +45,16 @@ Keeping OSMLR IDs compact is important, as these IDs are used in many places to 
 
 ## Matching OSMLR descriptors to a map dataset
 
+OSMLR descriptors can be matched to a map dataset by taking the LRPs in each descriptor and making a shortest-distance route from each to the next coordinate, biasing in favour of routes which head in the right bearing. If several routes are candidates, then choose the one which most closesly matches the descriptor.
+
+This can be somewhat fuzzy, and there may be more than one match. In these cases, it may require some tie-breaking to figure out which is the best match. Descriptors may not overlap, so it's possible to discard any part of the road network which was already matched to a descriptor. Indeed, descriptors which do not have a good candidate match - or have several - might be best postponed until all other good matches have been made to reduce the number of candidates. In general, a more major road such as a highway would make a better match than a residential road, but the circumstances may vary with the characteristics of the individual dataset.
+
+Many of the descriptors will not be fuzzy, and will closely match a single segment of road. In these cases, optimisations are possible so as to not need to run a full route for each match. Running a route can sometimes be expensive in computer time, so avoiding the it whenever possible is recommended.
+
+The first case for optimisation is when the target dataset has an edge in its routing network which corresponds exactly to the descriptor. These can be found easily when the source and destination points are the start and end nodes of an edge in the graph. While this may lead to spurious matches where there is also a shorter route, we rely on the extra attributes in the OSMLR descriptor - the bearing, length, road class, and so forth - to filter these out and ensure that only valid matches will be found.
+
+This case can be extended for a sequence of edges. The edges leaving the start node can be "walked" to the next edges until either the end node is found, or a junction is encountered. Again, we rely on the properties of the descriptor to find candidate edges and filter out spurious matches.
+
+It is possible that several edges will match one descriptor, or that a single descriptor might only match a part of an edge. We call such collections of edges and decriptors "chunks". Each chunk consists of multiple edges, each of which has several correspondences to ranges along some descriptors. A single edge might match the first 50% of its length to one descriptor and the remaining 50% to a different one, for example.
+
+After the matching process is complete, this association between edges and OSMLR descriptors is saved to a data structure which handles both the common 1:1 match in a compact and efficient manner, but also allows for the more complex chunks. This consists of an array of OSMLR IDs indexed by the edge ID within a tile. There are some flag bits stored along with the OSMLR IDs which determine whether it is treated as a single ID for the common 1:1 case, or as an index into a second array of objects which describe the details of the chunk.
