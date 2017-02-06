@@ -6,6 +6,7 @@ compiler:
 env:
 before_install:
   - export LD_LIBRARY_PATH=.:`cat /etc/ld.so.conf.d/* | grep -vF "#" | tr "\\n" ":" | sed -e "s/:$//g"`
+  - if [[ $(grep -cF trusty /etc/lsb-release) > 0 ]]; then sudo add-apt-repository -y ppa:kevinkreiser/libsodium; sudo add-apt-repository -y ppa:kevinkreiser/libpgm; sudo add-apt-repository -y ppa:kevinkreiser/zeromq3; sudo add-apt-repository -y ppa:kevinkreiser/czmq; sudo add-apt-repository -y ppa:zerebubuth/ccache; fi
   - sudo add-apt-repository -y ppa:kevinkreiser/prime-server
   - sudo add-apt-repository -y ppa:valhalla-routing/valhalla
   - sudo apt-get update
