@@ -20,7 +20,7 @@ namespace bpt = boost::property_tree;
 namespace bra = boost::adaptors;
 
 // Access mask for vehicles. Be permissive here, as we want to collect traffic
-// on most vehicular routes. // TODO: make configurable
+// on most vehicular routes.
 constexpr uint32_t kVehicular = vb::kAutoAccess | vb::kTruckAccess |
                                 vb::kTaxiAccess | vb::kBusAccess |
                                 vb::kHOVAccess;
@@ -177,6 +177,7 @@ struct tile_exists_filter {
 };
 
 bool check_access(vb::GraphReader &reader, const vb::merge::path &p) {
+  // TODO: make traffic mask configurable
   uint32_t access = vb::kAllAccess;
   for (auto edge_id : p.m_edges) {
     auto edge = reader.GetGraphTile(edge_id)->directededge(edge_id);
