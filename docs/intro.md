@@ -27,15 +27,15 @@ Those properties are:
 
 To illustrate, consider the following fictional section of road.
 
-![Fictional section of road](segment_1.svg)
+![Fictional section of road](segment_1.png)
 
 In this example, we want to turn the contiguous section of road between the two junctions, which includes a section of bridge, into an OSMLR segment. However, because the bit of road which is a bridge has different properties, this means that there will be (at least) three OSM ways.
 
-![The section of road is made up of 3 OSM ways](segment_2.svg)
+![The section of road is made up of 3 OSM ways](segment_2.png)
 
 We need to merge across these ways to make up the whole segment. Once that segment has been identified, we need to compute the descriptor, which is the series of LRPs that describe it.
 
-![The series of LRPs which describe the segment](segment_3.svg)
+![The series of LRPs which describe the segment](segment_3.png)
 
 The LRPs are not aligned with the ways, and do not make reference to them. For each LRP, the properties are calculated along the geometry of the combined segment. In this example, there are two LRPs, which is not really to scale as LRPs only need to be repeated every 15km.
 
@@ -109,7 +109,7 @@ After the matching process is complete, this association between edges and OSMLR
 
 The one-to-one match is the simplest case, and happily also the most common. In this case, there is one OSMLR segment describing a single graph edge in the map - whether that be an OSM way, Valhalla edge or data item from another map data source. This is illustrated below.
 
-![One to one match case](one_to_one.svg)
+![One to one match case](one_to_one.png)
 
 The OSMLR descriptor and the road in the datasource overlap to within a tolerance. They start at similar points and end at similar points, and pass through similar points. The degree of tolerance that is used in the Valhalla matching process is 10 meters, although other values can be used depending on the particular circumstances of the dataset.
 
@@ -119,7 +119,7 @@ Given the 1:1 correspondance, it's easy to transfer properties - such as traffic
 
 In this case, one OSMLR segment describes several edges in the routing graph. This most commonly happens when an OSMLR segment elides a road feature which is unimportant for traffic purposes, such as a bridge.
 
-![One to many match case, featuring a bridge](one_to_many.svg)
+![One to many match case, featuring a bridge](one_to_many.png)
 
 Although the edges partially overlap, the combination of the edges is equivalent to the OSMLR segment. The first node of the first edge matches the start of the OSMLR segment descriptor and the last node of the last segment matches the end of the OSMLR segment descriptor.
 
@@ -129,7 +129,7 @@ Transferring properties, such as traffic speed, from the descriptor to the edges
 
 In this case, several OSMLR segments describe the same edges, although non-overlapping parts of it. This can happen when the data that the routing graph was generated from is different from the data used to generate the OSMLR segments. In the illustration below, this is represented by a road that has been added or deleted between the datasets such that it was present when the OSMLR descriptors were generated, and missing when the routing graph was generated.
 
-![Many to one match case, featuring a missing road](many_to_one.svg)
+![Many to one match case, featuring a missing road](many_to_one.png)
 
 Each OSMLR descriptor matches only part of an edge, but the combination of all the descriptors matches the edge. The start of the first segment matches the first node, and the end of the last segment matches the end node.
 
@@ -139,6 +139,6 @@ Transferring properties is the inverse of the one-to-many case; going from the s
 
 This case may arise out of a combination of the one-to-many and many-to-one cases, as illustrated below, or simply arise from complex differences between datasets. For the illustration, a road has been added or removed next to a bridge, and this means that the end points of the edge adjacent to the brige and the new road do not coincide.
 
-![Many to many case, featuring complexity](many_to_many.svg)
+![Many to many case, featuring complexity](many_to_many.png)
 
 One way of dealing with these is to define "chunks", with each chunk consisting of segments 1 and 2, plus edges A, B and C. While the interior points (betwen 1 & 2, or between A & B or B & C) are not shared between edges and segments, the start point of the chunk is shared between 1 & A, and the end point between 2 & C. This allows a linear reference along the whole length of the combined chunk, and so allows properties to be linearly interpolated, weighting by length.
