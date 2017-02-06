@@ -2,11 +2,11 @@
 
 ## What's the problem we're trying to solve?
 
-As part of the OpenTraffic project, we are trying to build an open and accessible traffic framework for global use which allows individuals and fleet operators to get the benefits of access to traffic data while participating in a transparent and privacy-respecting system.
+As part of the [OpenTraffic](http://opentraffic.io/) project, we are trying to build an open and accessible traffic framework for global use which allows individuals and fleet operators to get the benefits of access to traffic data while participating in a transparent and privacy-respecting system.
 
 At its core, traffic data is all about current or average speeds along a section of road. Specifying speed is easy, once a choice of units has been made, but specifying a section of road is more complex. There are many reasons for this:
 
-* We are using data from OpenStreetMap, which provides a detailed, global road network with the same position on openness and accessibility that OpenTraffic aspires to. However, the OpenStreetMap (abbreviated to OSM) data is constantly updated as myriad people around the world contribute to it every minute of the day. While it would be possible for OpenTraffic to follow the same approach, we felt that there were benefits to having a slower, more controlled update process.
+* We are using data from [OpenStreetMap](https://www.openstreetmap.org), which provides a detailed, global road network with the same position on openness and accessibility that OpenTraffic aspires to. However, the OpenStreetMap (abbreviated to OSM) data is constantly updated as myriad people around the world contribute to it every minute of the day. While it would be possible for OpenTraffic to follow the same approach, we felt that there were benefits to having a slower, more controlled update process.
 * Although we are using data from OSM, many individuals and fleet operators who wish to contribute to the project may want to use their own local datasets, and we want to make it possible for them to be part of OpenTraffic. This means that, although we construct our references to road sections from OSM data, it should be possible to find the section of road on a different map.
 * Different datasets have different methods of splitting up roads into smaller parts, often to satisfy different requirements about their data model. For specifying traffic data, there is a balance between making road segments as long as possible to decrease the space that traffic data takes up, and making road segments shorter to increase the level of detail in the data. Getting this right for OpenTraffic will require a different method of splitting up roads than any other dataset has chosen.
 * To keep data usage to a minimum, which may be important for sending traffic data to mobile devices, we want OSMLR descriptors and identifiers to be compact.
@@ -63,13 +63,13 @@ This OSMLR descriptor is given an ID consisting of three parts:
 
 ## Relationship to OpenLR
 
-These problems have already been faced and a solution found by the OpenLR project. Although OpenLR deals with many kinds of location references, OpenTraffic only needs to specify linear references - i.e: sections of roads.
+These problems have already been faced and a solution found by the [OpenLR](http://openlr.net/) project. Although OpenLR deals with many kinds of location references, OpenTraffic only needs to specify linear references - i.e: sections of roads.
 
 Therefore, the scheme described above is based on OpenLR with changes where appropriate to make it easier to work with OSM data.
 
 ## Relationship to Valhalla
 
-Valhalla is an open source routing engine and accompanying libraries for use with OpenStreetMap data. Valhalla also includes many routing-related tools, such as time-distance matrix computation, isochrones, elevation sampling, map matching and tour optimization (Traveling Salesman).
+[Valhalla](https://github.com/valhalla/valhalla) is an open source routing engine and accompanying libraries for use with OpenStreetMap data. Valhalla also includes many routing-related tools, such as time-distance matrix computation, isochrones, elevation sampling, map matching and tour optimization (Traveling Salesman).
 
 While the OSMLR model could be implemented independent from Valhalla, re-using existing, tested code to build the OSMLR segment generator reduces the size of the OSMLR codebase and makes it quicker and less error-prone to write. Since Valhalla is open source, there is little downside to introducing this dependency.
 
@@ -83,7 +83,7 @@ Making sure that descriptors match only a single road is important, but currentl
 
 ## OSMLR descriptor packaging and distribution
 
-OSMLR descriptors are packaged into separate levels of tiles, just like Valhalla road data tiles, which means that users can download only the subset of the data that they need. The descriptors and tiles are described in a Google Protocol Buffers description. This makes the output files relatively compact, gives a clear path for upgrades to the format and makes it easier to construct tools and libraries to access that data from many different programming languages.
+OSMLR [descriptors](https://github.com/opentraffic/osmlr-tile-spec/blob/master/segment.proto) are packaged into separate levels of [tiles](https://github.com/opentraffic/osmlr-tile-spec/blob/master/tile.proto), just like Valhalla road data tiles, which means that users can download only the subset of the data that they need. The descriptors and tiles are described in a [Google Protocol Buffers description](https://github.com/opentraffic/osmlr-tile-spec/). This makes the output files relatively compact, gives a clear path for upgrades to the format and makes it easier to construct tools and libraries to access that data from many different programming languages.
 
 Keeping OSMLR IDs compact is important, as these IDs are used in many places to look up traffic data or to keep correspondences between datasets. To ensure that OSMLR IDs are compact while allowing for them to change over time, OSMLR IDs are assigned by a central process. When an updated set of OSMLR descriptors is wanted, the central process will match the previous set of descriptors against the new data and retain any which still match. This means that new IDs are only assigned to new roads, or ones which have undergone major changes. For major changes, the old IDs are marked as "deleted" so that the association between a road section and an OSMLR descriptor is kept unique for any given data release.
 
