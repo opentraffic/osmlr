@@ -15,6 +15,7 @@ To build, install and run on Ubuntu (or other Debian based systems) try the foll
 
 ```bash
 #get dependencies
+sudo apt-add-repository ppa:kevinkreiser/prime-server
 sudo add-apt-repository ppa:valhalla-routing/valhalla
 sudo apt-get update
 sudo apt-get install libvalhalla-dev valhalla-bin
