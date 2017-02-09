@@ -19,6 +19,12 @@ namespace bpo = boost::program_options;
 namespace bpt = boost::property_tree;
 namespace bra = boost::adaptors;
 
+// Access mask for vehicles. Be permissive here, as we want to collect traffic
+// on most vehicular routes.
+constexpr uint32_t kVehicular = vb::kAutoAccess | vb::kTruckAccess |
+                                vb::kTaxiAccess | vb::kBusAccess |
+                                vb::kHOVAccess;
+
 bool edge_pred(const vb::DirectedEdge *edge) {
   return (edge->use() != vb::Use::kFerry &&
           edge->use() != vb::Use::kTransitConnection &&
@@ -188,12 +194,7 @@ bool check_access(vb::GraphReader &reader, const vb::merge::path &p) {
       return false;
     }
   }
-
-  // be permissive here, as we do want to collect traffic on most vehicular
-  // routes.
-  uint32_t vehicular = vb::kAutoAccess | vb::kTruckAccess |
-    vb::kTaxiAccess | vb::kBusAccess | vb::kHOVAccess;
-  return access & vehicular;
+  return access & kVehicular;
 }
 
 int main(int argc, char** argv) {
@@ -288,6 +289,6 @@ int main(int argc, char** argv) {
   if (output_geojson) {
     output_geojson->finish();
   }
-
+  LOG_INFO("Done");
   return EXIT_SUCCESS;
 }
