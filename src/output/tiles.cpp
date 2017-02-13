@@ -208,7 +208,9 @@ std::vector<lrp> build_segment_descriptor(vb::GraphReader &reader, const vb::mer
         uint32_t end_dist = ((i+1) * edge_len) / num_segs;
         assert(end_dist - start_dist < max_length);
 
-        shape = chop_subsegment(full_shape, end_dist);
+        // Since full_shape is chopped in this method make sure we use
+        // end_dist - start_dist as distance along the shape to chop
+        shape = chop_subsegment(full_shape, end_dist - start_dist);
         assert(!shape.empty());
         uint16_t bear = bearing(shape);
 
