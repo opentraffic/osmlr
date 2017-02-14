@@ -25,11 +25,22 @@ constexpr uint32_t kVehicular = vb::kAutoAccess | vb::kTruckAccess |
                                 vb::kTaxiAccess | vb::kBusAccess |
                                 vb::kHOVAccess;
 
-bool edge_pred(const vb::DirectedEdge *edge) {
+// Use this method when determining whether edge-merging can occur at a node.
+// Do not allow merging at nodes where a ferry exists or where transitions
+// exist.
+bool allow_merge_pred(const vb::DirectedEdge *edge) {
   return (edge->use() != vb::Use::kFerry &&
           edge->use() != vb::Use::kTransitConnection &&
           !edge->trans_up() &&
           !edge->trans_down());
+}
+
+// Use this method to determine whether an edge should be allowed along the
+// merged path.
+bool allow_edge_pred(const vb::DirectedEdge *edge) {
+  return (!edge->trans_up() && !edge->trans_down() && !edge->is_shortcut() &&
+           edge->use() != vb::Use::kTransitConnection &&
+           edge->use() != vb::Use::kFerry);
 }
 
 struct tiles_max_level {
@@ -178,21 +189,23 @@ struct tile_exists_filter {
 
 bool check_access(vb::GraphReader &reader, const vb::merge::path &p) {
   // TODO: make traffic mask configurable
+  int i = 0;
   uint32_t access = vb::kAllAccess;
   for (auto edge_id : p.m_edges) {
     auto edge = reader.GetGraphTile(edge_id)->directededge(edge_id);
     access &= edge->forwardaccess();
 
-    // if any edge is a shortcut, then drop the whole path
-    if (edge->is_shortcut()) {
+    // If the allow edge predicate is false for any edge, then drop
+    // the whole path.
+    if (!allow_edge_pred(edge)) {
+      // Output an error if we find a disallowed edge along a multi-edge path
+      if (p.m_edges.size() > 1) {
+        std::cout << "Disallow path due to non-allowed edge. " <<
+            p.m_edges.size() << " edges: i = " << i << std::endl;
+      }
       return false;
     }
-
-    // if the edge predicate is false for any edge, then drop the whole
-    // path.
-    if (edge_pred(edge) == false) {
-      return false;
-    }
+    i++;
   }
   return access & kVehicular;
 }
@@ -271,7 +284,7 @@ int main(int argc, char** argv) {
     tiles_max_level(reader, max_level), reader);
 
   vb::merge::merge(
-    filtered_tiles, reader, edge_pred,
+    filtered_tiles, reader, allow_merge_pred, allow_edge_pred,
     [&](const vb::merge::path &p) {
       if (check_access(reader, p)) {
         if (output_tiles) {
