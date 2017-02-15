@@ -19,12 +19,6 @@ namespace bpo = boost::program_options;
 namespace bpt = boost::property_tree;
 namespace bra = boost::adaptors;
 
-// Access mask for vehicles. Be permissive here, as we want to collect traffic
-// on most vehicular routes.
-constexpr uint32_t kVehicular = vb::kAutoAccess | vb::kTruckAccess |
-                                vb::kTaxiAccess | vb::kBusAccess |
-                                vb::kHOVAccess;
-
 // Use this method when determining whether edge-merging can occur at a node.
 // Do not allow merging at nodes where a ferry exists or where transitions
 // exist.
@@ -200,14 +194,14 @@ bool check_access(vb::GraphReader &reader, const vb::merge::path &p) {
     if (!allow_edge_pred(edge)) {
       // Output an error if we find a disallowed edge along a multi-edge path
       if (p.m_edges.size() > 1) {
-        std::cout << "Disallow path due to non-allowed edge. " <<
-            p.m_edges.size() << " edges: i = " << i << std::endl;
+        LOG_WARN("Disallow path due to non-allowed edge. " +  std::to_string(p.m_edges.size()) +
+                 " edges: i = " + std::to_string(i));
       }
       return false;
     }
     i++;
   }
-  return access & kVehicular;
+  return access & vb::kVehicularAccess;
 }
 
 int main(int argc, char** argv) {
