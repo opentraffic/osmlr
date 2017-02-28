@@ -9,6 +9,15 @@ namespace pbf = opentraffic::osmlr;
 
 namespace {
 
+// Local stats for testing
+int count = 0;
+int shortsegs = 0;
+int longsegs = 0;
+int roundabout = 0;
+int internal = 0;
+int turnchannel = 0;
+float accum = 0.0f;
+
 uint16_t bearing(const std::vector<vm::PointLL> &shape) {
   // OpenLR says to use 20m along the edge, but we could use the
   // GetOffsetForHeading function, which adapts it to the road class.
@@ -67,6 +76,14 @@ std::ostream &operator<<(std::ostream &out, FormOfWay fow) {
 FormOfWay form_of_way(const vb::DirectedEdge *e) {
   bool oneway = is_oneway(e);
   auto rclass = e->classification();
+
+  // stats
+  if (e->internal()){
+    internal++;
+  }
+  if (e->use() == vb::Use::kTurnChannel) {
+    turnchannel++;
+  }
 
   // if it's a slip road, return that. TODO: am i doing this right?
   if (e->link()) {
@@ -249,6 +266,17 @@ std::vector<lrp> build_segment_descriptor(vb::GraphReader &reader, const vb::mer
   assert(last_point_seen.lat() != 0.0);
   seg.emplace_back(last_point_seen, 0, start_frc, start_fow, least_frc, 0);
 
+  // Update stats
+  count++;
+  accum += accumulated_length;
+  if (accumulated_length < 25) {
+    shortsegs++;
+  } else if (accumulated_length > 2000) {
+    longsegs++;
+  }
+  if (start_fow == FormOfWay::kRoundabout) {
+    roundabout++;
+  }
   return seg;
 }
 
@@ -328,6 +356,15 @@ void tiles::add_path(const vb::merge::path &p) {
 }
 
 void tiles::finish() {
+  // Output some simple stats
+  float avg = accum / count;
+  std::cout << "count = " << count << " shortsegs = " << shortsegs <<
+          " longsegs " << longsegs << std::endl;
+  std::cout << "roundabouts = " << roundabout << std::endl;
+  std::cout << "internal = " << internal << std::endl;
+  std::cout << "turn channels = " << turnchannel << std::endl;
+  std::cout << "average length = " << avg << std::endl;
+
   // because protobuf Tile messages can be concatenated and there's no footer to
   // write, the only thing to ensure is that all the files are flushed to disk.
   m_writer.close_all();
