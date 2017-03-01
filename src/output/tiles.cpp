@@ -29,13 +29,10 @@ vb::RoadClass lowest_frc(vb::GraphReader &m_reader, const vb::merge::path &p) {
   return min;
 }
 
+// Check if oneway. Assumes forward access is allowed. Edge is oneway if
+// no reverse vehicular access is allowed
 bool is_oneway(const vb::DirectedEdge *e) {
-  // TODO: make this configurable?
-  uint32_t vehicular = vb::kAutoAccess | vb::kTruckAccess |
-    vb::kTaxiAccess | vb::kBusAccess | vb::kHOVAccess;
-  // TODO: don't need to find opposite edge, as this info alread in the
-  // reverseaccess mask?
-  return (e->reverseaccess() & vehicular) == 0;
+  return (e->reverseaccess() & vb::kVehicularAccess) == 0;
 }
 
 enum class FormOfWay {
