@@ -21,20 +21,24 @@ namespace bra = boost::adaptors;
 
 // Use this method when determining whether edge-merging can occur at a node.
 // Do not allow merging at nodes where a ferry exists or where transitions
-// exist.
+// exist (except to local level). Also do not allow where a roundabout or
+// internal intersection edge exists.
 bool allow_merge_pred(const vb::DirectedEdge *edge) {
-  return (edge->use() != vb::Use::kFerry &&
-          edge->use() != vb::Use::kTransitConnection &&
-          !edge->trans_up() &&
-          !edge->trans_down());
+  return (!edge->trans_up() && edge->use() != vb::Use::kFerry &&
+          !edge->roundabout() && !edge->internal() &&
+          !(edge->trans_down() && edge->endnode().level() != 2));
 }
+
 
 // Use this method to determine whether an edge should be allowed along the
 // merged path.
 bool allow_edge_pred(const vb::DirectedEdge *edge) {
   return (!edge->trans_up() && !edge->trans_down() && !edge->is_shortcut() &&
-           edge->use() != vb::Use::kTransitConnection &&
-           edge->use() != vb::Use::kFerry);
+           edge->use() != vb::Use::kTurnChannel &&
+           edge->use() != vb::Use::kFerry && !edge->roundabout() &&
+          !edge->internal() &&
+        !((edge->forwardaccess() & vb::kVehicularAccess) == 0 &&
+          (edge->reverseaccess() & vb::kVehicularAccess) == 0));
 }
 
 struct tiles_max_level {
