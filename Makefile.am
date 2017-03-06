@@ -39,7 +39,7 @@ clean-genfiles:
 	-rm -rf genfiles
 
 # protobuf generated code
-PROTO_FILES := proto/segment.proto proto/tile.proto
+PROTO_FILES = proto/segment.proto proto/tile.proto
 src/proto/%.pb.cc: proto/%.proto
 	@echo "PROTOC $<"; mkdir -p src/proto include/proto; @PROTOC_BIN@ -Iproto --cpp_out=include/proto $< && mv include/proto/$(@F) src/proto
 
