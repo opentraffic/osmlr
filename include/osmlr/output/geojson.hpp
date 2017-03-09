@@ -13,6 +13,11 @@ struct geojson : public output {
   virtual ~geojson();
 
   void add_path(const valhalla::baldr::merge::path &);
+  void output_segment(const valhalla::baldr::merge::path &p);
+  void output_segment(const std::vector<valhalla::midgard::PointLL>& shape,
+                      const valhalla::baldr::DirectedEdge* edge,
+                      const valhalla::baldr::GraphId& edgeid);
+  void split_path(const valhalla::baldr::merge::path& p, const uint32_t total_length);
   void finish();
 
 private:
