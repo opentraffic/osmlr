@@ -164,7 +164,7 @@ void geojson::split_path(const vb::merge::path& p, const uint32_t total_length) 
 
 void geojson::output_segment(const vb::merge::path &p) {
   std::ostringstream out;
-  out.precision(17);
+  out.precision(9);
 
   auto tile_id = p.m_start.Tile_Base();
 
@@ -193,21 +193,25 @@ void geojson::output_segment(const vb::merge::path &p) {
     if (directededge->classification() < best_frc) {
       best_frc = directededge->classification();
     }
-    auto edgeinfo_offset = directededge->edgeinfo_offset();
-    auto edgeinfo = tile->edgeinfo(edgeinfo_offset);
-    auto decoder = edgeinfo.lazy_shape();
 
+    // Get the edge shape. reverse the order if needed
+    auto edgeinfo_offset = directededge->edgeinfo_offset();
+    std::vector<PointLL> shape = tile->edgeinfo(edgeinfo_offset).shape();
+    if (!directededge->forward()) {
+      std::reverse(shape.begin(), shape.end());
+    }
+
+    // Serialize the shape
     out << "[";
     bool first_pt = true;
-    while (!decoder.empty()) {
+    for (const auto& pt : shape) {
       if (first_pt) { first_pt = false; } else { out << ","; }
-
-      auto pt = decoder.pop();
       out << "[" << pt.lng() << "," << pt.lat() << "]";
     }
     out << "]";
   }
 
+  // Add properties for this OSMLR segment
   vb::GraphId osmlr_id(tile_id.tileid(), tile_id.level(), tile_path_itr->second);
   out << "]},\"properties\":{"
       << "\"tile_id\":" << tile_id.tileid() << ","
