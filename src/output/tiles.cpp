@@ -21,6 +21,7 @@ constexpr uint32_t kMaximumLength = 1000;
 int count = 0;
 int shortsegs = 0;
 int longsegs = 0;
+int chunks = 0;
 float accum = 0.0f;
 
 uint16_t bearing(const std::vector<vm::PointLL> &shape) {
@@ -187,9 +188,11 @@ void tiles::split_path(const vb::merge::path& p, const uint32_t total_length) {
       for (int i = 0; i < n; i++) {
         auto sub_shape = chop_subsegment(shape, std::ceil(dist));
         output_segment(sub_shape, edge, edge_id, (i==0), false);
+        chunks++;
       }
       if (shape.size() > 0) {
         output_segment(shape, edge, edge_id, false, true);
+        chunks++;
       }
 
       // Start a new path at the end of this edge
@@ -398,6 +401,7 @@ void tiles::finish() {
   float avg = accum / count;
   std::cout << "count = " << count << " shortsegs = " << shortsegs <<
           " longsegs " << longsegs << std::endl;
+  std::cout << "chunks " << chunks << std::endl;
   std::cout << "average length = " << avg << std::endl;
 
   // because protobuf Tile messages can be concatenated and there's no footer to
