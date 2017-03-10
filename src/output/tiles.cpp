@@ -50,44 +50,6 @@ bool is_oneway(const vb::DirectedEdge *e) {
   return (e->reverseaccess() & vb::kVehicularAccess) == 0;
 }
 
-
-vm::PointLL interp(vm::PointLL a, vm::PointLL b, double frac) {
-  return vm::PointLL(a.AffineCombination(1.0 - frac, frac, b));
-}
-
-// chop the first "dist" length off seg, returning it as the result. this will
-// modify seg!
-std::vector<vm::PointLL> chop_subsegment(std::vector<vm::PointLL> &seg, uint32_t dist) {
-  const size_t len = seg.size();
-  assert(len > 1);
-  std::vector<vm::PointLL> result;
-  result.push_back(seg[0]);
-  double d = 0.0;
-  size_t i = 1;
-  for (; i < len; ++i) {
-    auto segdist = seg[i-1].Distance(seg[i]);
-    if ((d + segdist) >= dist) {
-      double frac = (static_cast<double>(dist) - d) / segdist;
-      auto midpoint = interp(seg[i-1], seg[i], frac);
-      result.push_back(midpoint);
-      // remove used part of seg.
-      seg.erase(seg.begin(), (seg.begin() + (i - 1)));
-      seg[0] = midpoint;
-      break;
-
-    } else {
-      d += segdist;
-      result.push_back(seg[i]);
-    }
-  }
-
-  // used all of seg, and exited the loop by iteration rather than breaking out.
-  if (i == len) {
-    seg.clear();
-  }
-  return result;
-}
-
 pbf::Segment_RoadClass convert_frc(vb::RoadClass rc) {
   assert(pbf::Segment_RoadClass_IsValid(int(rc)));
   return pbf::Segment_RoadClass(int(rc));
@@ -186,7 +148,7 @@ void tiles::split_path(const vb::merge::path& p, const uint32_t total_length) {
       int n = (edge_len / kMaximumLength);
       float dist = static_cast<float>(edge_len) / static_cast<float>(n+1);
       for (int i = 0; i < n; i++) {
-        auto sub_shape = chop_subsegment(shape, std::ceil(dist));
+        auto sub_shape = trim_front(shape, std::ceil(dist));
         output_segment(sub_shape, edge, edge_id, (i==0), false);
         chunks++;
       }
