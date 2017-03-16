@@ -34,7 +34,13 @@ valhalla_build_tiles -c valhalla.json planet.pbf
 find valhalla_tiles | sort -n | tar cf tiles.tar --no-recursion -T -
 
 #make some osmlr segments
-LD_LIBRARY_PATH=/usr/lib:/usr/local/lib osmlr tiles.tar
+LD_LIBRARY_PATH=/usr/lib:/usr/local/lib osmlr -m 1 -T ${PWD}/osmlr_tiles valhalla.json
+
+# -j 2 uses two threads for association process (use more or fewer as available cores permit)
+valhalla_associate_segments -t ${PWD}/osmlr_tiles -j 2 --config valhalla.json
+
+# rebuild tar with traffic segement associated tiles
+find valhalla_tiles | sort -n | tar rf tiles.tar --no-recursion -T -
 
 #HAVE FUN!
 ```
