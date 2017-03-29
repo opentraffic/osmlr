@@ -1,6 +1,7 @@
 #ifndef OSMLR_OUTPUT_TILES_HPP
 #define OSMLR_OUTPUT_TILES_HPP
 
+#include <unordered_map>
 #include <osmlr/output/output.hpp>
 #include <osmlr/util/tile_writer.hpp>
 
@@ -62,6 +63,8 @@ private:
   valhalla::baldr::GraphReader &m_reader;
   util::tile_writer m_writer;
   uint32_t m_max_length;
+
+  std::unordered_map<valhalla::baldr::GraphId, uint32_t> m_counts;
 
   std::vector<lrp> build_segment_descriptor(const valhalla::baldr::merge::path &p);
   std::vector<lrp> build_segment_descriptor(const std::vector<valhalla::midgard::PointLL>& shape,
