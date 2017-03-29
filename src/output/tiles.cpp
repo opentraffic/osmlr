@@ -354,6 +354,7 @@ void tiles::output_segment(std::vector<lrp>& lrps,
   if (!tile.SerializeToString(&buf)) {
     throw std::runtime_error("Unable to serialize Tile message.");
   }
+  m_counts[tile_id]++;
   m_writer.write_to(tile_id, buf);
 }
 
@@ -365,6 +366,19 @@ void tiles::finish() {
           " longsegs " << longsegs << std::endl;
   std::cout << "chunks " << chunks << std::endl;
   std::cout << "average length = " << avg << std::endl;
+
+  uint32_t total = 0;
+  uint32_t max_count = 0;
+  for (auto tile : m_counts) {
+    if (tile.second > max_count) {
+      max_count = tile.second;
+    }
+    total += tile.second;
+    //std::cout << tile.first << " count = " << tile.second << std::endl;
+  }
+  std::cout << "Max OSMLR segments within a tile = " << max_count << std::endl;
+  std::cout << "Average OSMLR count per tile = " << (total / m_counts.size()) << std::endl;
+  std::cout << "Tile count = " << m_counts.size() << std::endl;
 
   // because protobuf Tile messages can be concatenated and there's no footer to
   // write, the only thing to ensure is that all the files are flushed to disk.
