@@ -27,7 +27,6 @@ private:
 
   const std::string m_base_dir, m_suffix;
   const size_t m_max_fds;
-  const valhalla::baldr::TileHierarchy m_tile_hierarchy;
 
   struct lru_fd {
     // the file descriptor itself

@@ -14,8 +14,7 @@ namespace util {
 tile_writer::tile_writer(std::string base_dir, std::string suffix, size_t max_fds)
   : m_base_dir(base_dir)
   , m_suffix(suffix)
-  , m_max_fds(max_fds)
-  , m_tile_hierarchy(m_base_dir) {
+  , m_max_fds(max_fds) {
   if (bfs::exists(base_dir) && !bfs::is_empty(base_dir)) {
     LOG_WARN("Non-empty " + base_dir + " will be purged of data.");
     bfs::remove_all(base_dir);
@@ -55,7 +54,7 @@ void tile_writer::close_all() {
 }
 
 std::string tile_writer::get_name_for_tile(vb::GraphId tile_id) {
-  auto suffix = vb::GraphTile::FileSuffix(tile_id, m_tile_hierarchy);
+  auto suffix = vb::GraphTile::FileSuffix(tile_id);
   auto path = bfs::path(m_base_dir) / suffix;
   return path.replace_extension(m_suffix).string();
 }
