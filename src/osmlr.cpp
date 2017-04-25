@@ -1,5 +1,6 @@
 #include <valhalla/midgard/logging.h>
 #include <valhalla/baldr/graphreader.h>
+#include <valhalla/baldr/tilehierarchy.h>
 #include <valhalla/baldr/merge.h>
 
 #include <boost/program_options.hpp>
@@ -42,7 +43,7 @@ bool allow_edge_pred(const vb::DirectedEdge *edge) {
 }
 
 struct tiles_max_level {
-  typedef std::vector<vb::TileHierarchy::TileLevel> levels_t;
+  typedef std::vector<vb::TileLevel> levels_t;
   levels_t m_levels;
 
   struct const_iterator {
@@ -100,8 +101,8 @@ struct tiles_max_level {
     }
   };
 
-  tiles_max_level(vb::GraphReader &reader, unsigned int max_level) {
-    for (auto level : reader.GetTileHierarchy().levels() | bra::map_values) {
+  tiles_max_level(unsigned int max_level) {
+    for (auto level : vb::TileHierarchy::levels() | bra::map_values) {
       if (level.level <= max_level) {
         m_levels.push_back(level);
       }
@@ -279,7 +280,7 @@ int main(int argc, char** argv) {
   assert(max_level <= std::numeric_limits<uint8_t>::max());
 
   auto filtered_tiles = tile_exists_filter<tiles_max_level>(
-    tiles_max_level(reader, max_level), reader);
+    tiles_max_level(max_level), reader);
 
   vb::merge::merge(
     filtered_tiles, reader, allow_merge_pred, allow_edge_pred,
