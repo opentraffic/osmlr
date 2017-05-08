@@ -149,8 +149,10 @@ void tiles::split_path(const vb::merge::path& p, const uint32_t total_length) {
       float dist = static_cast<float>(edge_len) / static_cast<float>(n+1);
       for (int i = 0; i < n; i++) {
         auto sub_shape = trim_front(shape, std::ceil(dist));
-        output_segment(sub_shape, edge, edge_id, (i==0), false);
-        chunks++;
+        if (sub_shape.size() > 0) {
+          output_segment(sub_shape, edge, edge_id, (i==0), false);
+          chunks++;
+        }
       }
       if (shape.size() > 0) {
         output_segment(shape, edge, edge_id, false, true);
@@ -231,10 +233,12 @@ std::vector<lrp> tiles::build_segment_descriptor(const std::vector<vm::PointLL>&
   count++;
   accum += accumulated_length;
   if (accumulated_length < 25) {
-    LOG_INFO("accumulated length = " + std::to_string(accumulated_length));
+    LOG_ERROR("Build segment for portion of edge: short length = " +
+              std::to_string(accumulated_length) + " should not occur");
     shortsegs++;
-  } else if (accumulated_length > kMaximumLength+10) {
-    LOG_INFO("accumulated length = " + std::to_string(accumulated_length));
+  } else if (accumulated_length > kMaximumLength+100) {
+    LOG_ERROR("Build segment for portion of edge: long length = " +
+              std::to_string(accumulated_length) + " should not occur");
     longsegs++;
   }
   return seg;
@@ -314,8 +318,15 @@ void tiles::output_segment(const std::vector<vm::PointLL>& shape,
                            const vb::DirectedEdge* edge,
                            const vb::GraphId& edgeid,
                            const bool start_at_node, const bool end_at_node) {
-  auto lrps = build_segment_descriptor(shape, edge, start_at_node, end_at_node);
-  output_segment(lrps, edgeid.Tile_Base());
+  if (shape.size() > 0) {
+    auto lrps = build_segment_descriptor(shape, edge, start_at_node, end_at_node);
+    output_segment(lrps, edgeid.Tile_Base());
+  } else {
+    LOG_ERROR("Skip segment with 0 shape points edge Id: " +
+              std::to_string(edgeid.tileid()) + "," +
+              std::to_string(edgeid.level()) + "," +
+              std::to_string(edgeid.id()));
+  }
 }
 
 void tiles::output_segment(std::vector<lrp>& lrps,
@@ -374,7 +385,6 @@ void tiles::finish() {
       max_count = tile.second;
     }
     total += tile.second;
-    //std::cout << tile.first << " count = " << tile.second << std::endl;
   }
   std::cout << "Max OSMLR segments within a tile = " << max_count << std::endl;
   std::cout << "Average OSMLR count per tile = " << (total / m_counts.size()) << std::endl;

@@ -92,7 +92,9 @@ void geojson::split_path(const vb::merge::path& p, const uint32_t total_length) 
       for (int i = 0; i < n; i++) {
        // if (shape.size() == 0) break;
         auto sub_shape = trim_front(shape, d);
-        output_segment(sub_shape, edge, edge_id);
+        if (sub_shape.size() > 0) {
+          output_segment(sub_shape, edge, edge_id);
+        }
       }
       if (shape.size() > 0) {
         output_segment(shape, edge, edge_id);
