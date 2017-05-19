@@ -32,12 +32,14 @@ bool allow_merge_pred(const vb::DirectedEdge *edge) {
 
 
 // Use this method to determine whether an edge should be allowed along the
-// merged path.
+// merged path. Only allow road and ramp use (exclude turn channels,
+// cul-de-sacs, driveways, parking, etc.) Must have vehicular access. Also
+// exclude service/other classification, shortcuts, and transition edges.
 bool allow_edge_pred(const vb::DirectedEdge *edge) {
   return (!edge->trans_up() && !edge->trans_down() && !edge->is_shortcut() &&
-           edge->use() != vb::Use::kTurnChannel &&
-           edge->use() != vb::Use::kFerry && !edge->roundabout() &&
-          !edge->internal() &&
+           edge->classification() != vb::RoadClass::kServiceOther &&
+          (edge->use() == vb::Use::kRoad || edge->use() == vb::Use::kRamp) &&
+          !edge->roundabout() && !edge->internal() &&
         !((edge->forwardaccess() & vb::kVehicularAccess) == 0 &&
           (edge->reverseaccess() & vb::kVehicularAccess) == 0));
 }
