@@ -7,6 +7,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/range/adaptor/map.hpp>
+#include <time.h>
 
 #include "config.h"
 #include "osmlr/output/output.hpp"
@@ -269,20 +270,33 @@ int main(int argc, char** argv) {
   //get something we can use to fetch tiles
   vb::GraphReader reader(pt.get_child("mjolnir"));
 
+  assert(max_level <= std::numeric_limits<uint8_t>::max());
+  auto filtered_tiles = tile_exists_filter<tiles_max_level>(
+    tiles_max_level(max_level), reader);
+
+  // Get the OSM changeset Id and current date. Do this here so common across
+  // all tiles.
+  uint64_t osm_changeset_id = 0;
+  time_t creation_date = time(nullptr);
+  for (vb::GraphId tile_id : filtered_tiles) {
+    const auto *tile = reader.GetGraphTile(tile_id);
+    if (tile != nullptr) {
+      osm_changeset_id = tile->header()->dataset_id();
+      break;
+    }
+  }
+
   if (vm.count("output-tiles")) {
     std::string dir = vm["output-tiles"].as<std::string>();
-    output_tiles = std::make_shared<osmlr::output::tiles>(reader, dir, max_fds);
+    output_tiles = std::make_shared<osmlr::output::tiles>(reader, dir, max_fds,
+                           creation_date, osm_changeset_id);
   }
 
   if (vm.count("output-geojson")) {
     std::string dir = vm["output-geojson"].as<std::string>();
-    output_geojson = std::make_shared<osmlr::output::geojson>(reader, dir, max_fds);
+    output_geojson = std::make_shared<osmlr::output::geojson>(reader, dir, max_fds,
+                           creation_date, osm_changeset_id);
   }
-
-  assert(max_level <= std::numeric_limits<uint8_t>::max());
-
-  auto filtered_tiles = tile_exists_filter<tiles_max_level>(
-    tiles_max_level(max_level), reader);
 
   vb::merge::merge(
     filtered_tiles, reader, allow_merge_pred, allow_edge_pred,
