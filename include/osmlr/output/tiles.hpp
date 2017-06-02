@@ -2,6 +2,7 @@
 #define OSMLR_OUTPUT_TILES_HPP
 
 #include <unordered_map>
+#include <ctime>
 #include <osmlr/output/output.hpp>
 #include <osmlr/util/tile_writer.hpp>
 
@@ -46,7 +47,9 @@ struct lrp {
 };
 
 struct tiles : public output {
-  tiles(valhalla::baldr::GraphReader &reader, std::string base_dir, size_t max_fds, uint32_t max_length = 15000);
+  tiles(valhalla::baldr::GraphReader &reader, std::string base_dir, size_t max_fds,
+        time_t creation_date, const uint64_t osm_changeset_id,
+        uint32_t max_length = 15000);
   virtual ~tiles();
 
   void add_path(const valhalla::baldr::merge::path &p);
@@ -60,6 +63,8 @@ struct tiles : public output {
   void finish();
 
 private:
+  time_t m_creation_date;
+  uint64_t m_osm_changeset_id;
   valhalla::baldr::GraphReader &m_reader;
   util::tile_writer m_writer;
   uint32_t m_max_length;

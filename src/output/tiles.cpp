@@ -111,8 +111,12 @@ FormOfWay form_of_way(const vb::DirectedEdge *e) {
   }
 }
 
-tiles::tiles(vb::GraphReader &reader, std::string base_dir, size_t max_fds, uint32_t max_length)
-  : m_reader(reader)
+tiles::tiles(vb::GraphReader &reader, std::string base_dir, size_t max_fds,
+             time_t creation_date, const uint64_t osm_changeset_id,
+             uint32_t max_length)
+  : m_creation_date(creation_date)
+  , m_osm_changeset_id(osm_changeset_id)
+  , m_reader(reader)
   , m_writer(base_dir, "osmlr", max_fds)
   , m_max_length(max_length) {
 }
@@ -332,6 +336,11 @@ void tiles::output_segment(const std::vector<vm::PointLL>& shape,
 void tiles::output_segment(std::vector<lrp>& lrps,
                            const vb::GraphId& tile_id) {
   pbf::Tile tile;
+
+  // Add creation date and OSM changeset Id
+  tile.set_creation_date(m_creation_date);
+  tile.set_changeset_id(m_osm_changeset_id);
+
   auto *entry = tile.add_entries();
   // don't (yet) support deleted entries, so every entry is a Segment.
   auto *segment = entry->mutable_segment();

@@ -3,13 +3,16 @@
 
 #include <osmlr/output/output.hpp>
 #include <osmlr/util/tile_writer.hpp>
+#include <string>
 #include <unordered_map>
+#include <ctime>
 
 namespace osmlr {
 namespace output {
 
 struct geojson : public output {
-  geojson(valhalla::baldr::GraphReader &reader, std::string base_dir, size_t max_fds);
+  geojson(valhalla::baldr::GraphReader &reader, std::string base_dir, size_t max_fds,
+          time_t creation_date, const uint64_t osm_changeset_id);
   virtual ~geojson();
 
   void add_path(const valhalla::baldr::merge::path &);
@@ -21,6 +24,9 @@ struct geojson : public output {
   void finish();
 
 private:
+  time_t m_creation_date;
+  std::string m_date_str;
+  uint64_t m_osm_changeset_id;
   valhalla::baldr::GraphReader &m_reader;
   util::tile_writer m_writer;
   std::unordered_map<valhalla::baldr::GraphId, uint32_t> m_tile_path_ids;

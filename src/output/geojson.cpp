@@ -1,6 +1,7 @@
 #include "osmlr/output/geojson.hpp"
 #include <valhalla/midgard/util.h>
 #include <stdexcept>
+#include <iomanip>
 
 namespace vm = valhalla::midgard;
 namespace vb = valhalla::baldr;
@@ -13,9 +14,6 @@ constexpr uint32_t kMinimumLength = 5;
 // Maximum length for an OSMLR segment
 constexpr uint32_t kMaximumLength = 1000;
 
-const std::string k_geojson_header = "{\"type\":\"FeatureCollection\",\"features\":[";
-const std::string k_geojson_footer = "]}";
-
 // Check if oneway. Assumes forward access is allowed. Edge is oneway if
 // no reverse vehicular access is allowed
 bool is_oneway(const vb::DirectedEdge *e) {
@@ -27,9 +25,18 @@ bool is_oneway(const vb::DirectedEdge *e) {
 namespace osmlr {
 namespace output {
 
-geojson::geojson(vb::GraphReader &reader, std::string base_dir, size_t max_fds)
-  : m_reader(reader)
+geojson::geojson(vb::GraphReader &reader, std::string base_dir, size_t max_fds,
+                 time_t creation_date, const uint64_t osm_changeset_id)
+  : m_osm_changeset_id(osm_changeset_id)
+  , m_reader(reader)
   , m_writer(base_dir, "json", max_fds) {
+  // Change cration date into string plus int
+  m_creation_date = creation_date;
+  std::tm tm = *std::localtime(&creation_date);
+  std::stringstream dt;
+  dt.imbue(std::locale("C"));
+  dt << std::put_time(&tm, "%c %Z");
+  m_date_str = dt.str();
 }
 
 geojson::~geojson() {
@@ -136,7 +143,11 @@ void geojson::output_segment(const vb::merge::path &p) {
 
   auto tile_path_itr = m_tile_path_ids.find(tile_id);
   if (tile_path_itr == m_tile_path_ids.end()) {
-    out << k_geojson_header;
+    out << "{\"type\":\"FeatureCollection\",\"properties\":{"
+        << "\"creation_time\":" << m_creation_date << ","
+        << "\"creation_date\":\"" << m_date_str << "\","
+        << "\"changeset_id\":" << m_osm_changeset_id << "},";
+    out << "\"features\":[";
     std::tie(tile_path_itr, std::ignore) = m_tile_path_ids.emplace(tile_id, 0);
   } else {
     out << ",";
@@ -212,7 +223,11 @@ void geojson::output_segment(const std::vector<vm::PointLL>& shape,
 
   auto tile_path_itr = m_tile_path_ids.find(tile_id);
   if (tile_path_itr == m_tile_path_ids.end()) {
-    out << k_geojson_header;
+    out << "{\"type\":\"FeatureCollection\",\"properties\":{"
+        << "\"creation_time\":" << m_creation_date << ","
+        << "\"creation_date\":\"" << m_date_str << "\","
+        << "\"changeset_id\":" << m_osm_changeset_id << "},";
+    out << "\"features\":[";
     std::tie(tile_path_itr, std::ignore) = m_tile_path_ids.emplace(tile_id, 0);
   } else {
     out << ",";
@@ -252,7 +267,7 @@ void geojson::output_segment(const std::vector<vm::PointLL>& shape,
 
 void geojson::finish() {
   for (auto entry : m_tile_path_ids) {
-    m_writer.write_to(entry.first, k_geojson_footer);
+    m_writer.write_to(entry.first, "]}");
   }
   m_writer.close_all();
 }
