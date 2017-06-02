@@ -34,7 +34,7 @@ geojson::geojson(vb::GraphReader &reader, std::string base_dir, size_t max_fds,
   m_creation_date = creation_date;
   std::tm tm = *std::gmtime(&creation_date);
   char mbstr[100];
-  std::strftime(mbstr, sizeof(mbstr), "%A %c", &tm);
+  std::strftime(mbstr, sizeof(mbstr), "%c %Z", &tm);
   m_date_str = std::string(mbstr);
 }
 
