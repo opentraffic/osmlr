@@ -32,7 +32,7 @@ geojson::geojson(vb::GraphReader &reader, std::string base_dir, size_t max_fds,
   , m_writer(base_dir, "json", max_fds) {
   // Change cration date into string plus int
   m_creation_date = creation_date;
-  std::tm tm = *std::localtime(&creation_date);
+  std::tm tm = *std::gmtime(&creation_date);
   std::stringstream dt;
   dt.imbue(std::locale("C"));
   dt << std::put_time(&tm, "%c %Z");
