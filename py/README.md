@@ -1,6 +1,6 @@
 # Downloading Tiles
 
-We have created a script that gives you the ability to fetch a subset of Valhalla routing/json/osmlr tiles.  The script uses a bounding box to determine the list of graph tiles that intersect with the bounding box.
+We have created a script that gives you the ability to fetch a subset of Valhalla json/osmlr tiles.  The script uses a bounding box to determine the list of graph tiles that intersect with the bounding box.
 
 ### Run via the command line
 
