@@ -24,5 +24,5 @@ If cURL reports and error the script will report on what tiles were not download
 
 [WARN] https://thewebsite.com/dir/000/753/542.json was not found!
 
-A listing of the graph tile files is saved to files.txt.  Moreover, cURL output is saved to curl_output.txt.
+A listing of the tile files is saved to files.txt.  Moreover, cURL output is saved to curl_output.txt.
 
