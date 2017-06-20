@@ -14,7 +14,7 @@ We have created a script that gives you the ability to fetch a subset of Valhall
 
 `Number_of_Processes`:  This is the number of cURL requests that you want to run in parallel.
 
-`File_Type`: json|gph: This is the type of files that exist at this s3 location.
+`File_Type`: json|osmlr: This is the type of files that exist at this s3 location.
 
 `Tar_Output`:  True|False: do you want the tiles tar'd up after they are download? This is an optional parameter that defaults to False.  
 
