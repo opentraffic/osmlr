@@ -14,6 +14,12 @@ catch_exception() {
   fi
 }
 
+which curl > /dev/null
+if [ $? != 0 ]; then
+  echo "[FAILURE] Please install curl."
+  exit 1
+fi
+
 BBOX=$1
 URL=$2
 OUTPUT_DIRECTORY=$3
