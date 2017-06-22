@@ -1,6 +1,6 @@
 # Downloading Tiles
 
-We have created a script that gives you the ability to fetch a subset of Valhalla json/osmlr tiles.  The script uses a bounding box to determine the list of tiles that intersect with the bounding box.
+We have created a script that gives you the ability to fetch a subset of Valhalla json/osmlr tiles.  The script uses a bounding box to determine the list of tiles that intersect with the bounding box.  Or, you can always view the [listing of tiles] (https://s3.amazonaws.com/osmlr-tiles/listing.html) to see if any updates have been pushed up to S3.
 
 ### Run via the command line
 
