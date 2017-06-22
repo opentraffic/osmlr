@@ -11,7 +11,6 @@ Or, you can always view the [listing of tiles](https://s3.amazonaws.com/osmlr-ti
 3. To download a copy of the scripts, you can either:
     - Use Git to clone a copy of this repository for local use: `git clone https://github.com/opentraffic/osmlr.git`
     - Download a ZIP archive of the repository: `wget https://github.com/opentraffic/osmlr/archive/master.zip`
->>>>>>> Stashed changes
 
 ### Run via the command line
 
