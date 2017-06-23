@@ -3,6 +3,10 @@ OSMLR
 
 Applications for generating linear references (traffic segments) given OSM data in the form of Valhalla routing tiles.
 
+Related:
+- [Scripts to download prebuilt OSMLR segment tiles from S3](py/README.md)
+- [OSMLR Tile Specification](https://github.com/opentraffic/osmlr-tile-spec): Protocol Buffer definition files used by this generator application, as well as consumers of OSMLR segments
+
 Build Status
 ------------
 
