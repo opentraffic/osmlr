@@ -340,6 +340,7 @@ void tiles::output_segment(std::vector<lrp>& lrps,
   // Add creation date and OSM changeset Id
   tile.set_creation_date(m_creation_date);
   tile.set_changeset_id(m_osm_changeset_id);
+  tile.set_description(std::to_string(tile_id));
 
   auto *entry = tile.add_entries();
   // don't (yet) support deleted entries, so every entry is a Segment.

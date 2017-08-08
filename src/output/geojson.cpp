@@ -146,6 +146,7 @@ void geojson::output_segment(const vb::merge::path &p) {
     out << "{\"type\":\"FeatureCollection\",\"properties\":{"
         << "\"creation_time\":" << m_creation_date << ","
         << "\"creation_date\":\"" << m_date_str << "\","
+        << "\"description\":\"" << tile_id << "\","
         << "\"changeset_id\":" << m_osm_changeset_id << "},";
     out << "\"features\":[";
     std::tie(tile_path_itr, std::ignore) = m_tile_path_ids.emplace(tile_id, 0);
