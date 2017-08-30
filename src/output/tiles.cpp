@@ -344,6 +344,7 @@ void tiles::output_segment(std::vector<lrp>& lrps,
 
   auto *entry = tile.add_entries();
   // don't (yet) support deleted entries, so every entry is a Segment.
+  entry->set_segment_creation_date(m_creation_date);
   auto *segment = entry->mutable_segment();
 
   // should be at least 2 LRPs - at least a start and an end.
