@@ -43,9 +43,14 @@ std::string get_osmlr_tilename(const std::string& osmlr_dir,
 
 // Output a segment that is part of an edge.
 void output_segment(std::ostringstream& out,
+                    bool& first,
                     const vb::GraphId& osmlr_id,
                     const vb::DirectedEdge* edge,
                     const std::vector<vm::PointLL>& shape) {
+  if (!first) {
+    out << ",";
+  }
+  first = false;
   out << "{\"type\":\"Feature\",\"geometry\":";
   out << "{\"type\":\"MultiLineString\",\"coordinates\":[";
   out << "[";
@@ -56,7 +61,6 @@ void output_segment(std::ostringstream& out,
   }
   out << "]";
 
-  bool first = true;
   bool oneway = (edge->reverseaccess() & vb::kVehicularAccess) == 0;
   out << "]},\"properties\":{"
       << "\"tile_id\":" << osmlr_id.tileid() << ","
@@ -69,6 +73,64 @@ void output_segment(std::ostringstream& out,
   out << "}}";
 }
 
+// Follow a segment at the end node of the directed edge.
+const vb::DirectedEdge* follow_segment(const vb::TrafficSegment& seg,
+                                       std::vector<vm::PointLL>& shape,
+                                       const vb::DirectedEdge* edge,
+                                       const vb::GraphTile* tile,
+                                       vb::GraphReader& reader) {
+  // Get the end node of the directed edge
+  const vb::GraphTile* node_tile;
+  if (edge->endnode().tileid() == tile->header()->graphid().tileid()) {
+    node_tile = tile;
+  } else {
+    node_tile = reader.GetGraphTile(edge->endnode().Tile_Base());
+  }
+  const vb::NodeInfo* node = node_tile->node(edge->endnode());
+  uint32_t start_index = node->edge_index();
+  uint32_t end_index = start_index + node->edge_count();
+  for (uint32_t n = start_index; n < end_index; ++n) {
+    auto segments = node_tile->GetTrafficSegments(n);
+    if (segments.empty()) {
+      continue;
+    }
+
+    // Check if any of these segments match...
+    for (auto& next_seg : segments) {
+      if (next_seg.segment_id_ == seg.segment_id_) {
+        // Error if this edge starts this segment!
+        if (next_seg.starts_segment_) {
+          LOG_ERROR("Following a segment, but got another start for the segment!?");
+          return nullptr;
+        }
+
+        // Get the directed edge and the shape
+        const vb::DirectedEdge* next_edge = node_tile->directededge(n);
+        auto edgeinfo_offset = next_edge->edgeinfo_offset();
+        std::vector<vm::PointLL> next_shape = node_tile->edgeinfo(edgeinfo_offset).shape();
+        if (!next_edge->forward()) {
+          std::reverse(next_shape.begin(), next_shape.end());
+        }
+
+        // Append shape, trim if needed
+        if (next_seg.begin_percent_ > 0.0f || next_seg.end_percent_ < 1.0f) {
+          auto partial_shape = trim_polyline(next_shape.begin(), next_shape.end(),
+                      next_seg.begin_percent_, next_seg.end_percent_);
+          std::copy(partial_shape.begin(), partial_shape.end(), std::back_inserter(shape));
+        } else {
+          std::copy(next_shape.begin(), next_shape.end(), std::back_inserter(shape));
+        }
+
+        // Matched segment has been found. Return nullptr if this edge ends
+        // the segment otherwise return the next edge to follow.
+        return (next_seg.ends_segment_) ? nullptr : next_edge;
+      }
+    }
+  }
+  LOG_ERROR("Could not find continuation for the segment!");
+  return nullptr;
+}
+
 /**
  * Create GeoJSON for an OSMLR tile.
  */
@@ -76,7 +138,6 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
                     util::tile_writer& writer,
                     const boost::property_tree::ptree& hierarchy_properties,
                     const std::string& osmlr_dir, std::mutex& lock) {
-printf("Create GeoJSON\n");
   // Local Graphreader
   vb::GraphReader reader(hierarchy_properties);
 
@@ -141,18 +202,42 @@ printf("Create GeoJSON\n");
         std::reverse(shape.begin(), shape.end());
       }
 
-      // Simple case - one segments that begins and ends on this edge
-      if (segments.size() == 1 && segments.front().starts_segment_ &&
-          segments.front().ends_segment_) {
-        vb::GraphId segment_id = segments.front().segment_id_;
-        if (!first) {
-          out << ",";
+      if (segments.size() == 1) {
+        const auto& seg = segments.front();
+        if (seg.starts_segment_ && seg.begin_percent_ == 0.0f &&
+            seg.ends_segment_   && seg.end_percent_   == 1.0f) {
+          // Output full segment along this edge
+          output_segment(out, first, seg.segment_id_, edge, shape);
+        } else {
+          if (seg.starts_segment_) {
+            if (seg.end_percent_ == 1.0f) {
+              // Segment starts on this edge and uses the entire edge.
+              const vb::DirectedEdge* first_edge = edge;
+              while ((edge = follow_segment(seg, shape, edge, tile, reader)) != nullptr) {
+                ;
+              }
+              output_segment(out, first, seg.segment_id_, first_edge, shape);
+            } else {
+              // Should not see partial, single edges that are not part of a chunk
+              LOG_ERROR("Single partial segment starts on this edge but does not use entire edge?");
+            }
+          } else {
+            // Skip this segment - should be picked up by continuation cases...
+            ;
+          }
         }
-        output_segment(out, segment_id, edge, shape);
-        first = false;
       } else {
-        // Need to handle case where the segment continues onto next edge
-        // and also chunk cases...
+        for (auto& seg : segments) {
+          if (seg.starts_segment_ && seg.ends_segment_) {
+            // Segment lies fully on this edge. Get the partial shape along the
+            // edge for this segment
+            auto partial_shape = trim_polyline(shape.begin(), shape.end(), seg.begin_percent_, seg.end_percent_);
+            output_segment(out, first, seg.segment_id_, edge, partial_shape);
+          } else {
+            // THIS SHOULD NOT OCCUR!
+            LOG_ERROR("Chunk that does not begin and end a segment");
+          }
+        }
       }
     }
 
