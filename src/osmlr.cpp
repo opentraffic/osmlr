@@ -213,11 +213,7 @@ bool check_access(vb::GraphReader &reader, const vb::merge::path &p) {
 }
 
 int main(int argc, char** argv) {
-  unsigned int max_level, max_fds;
-  std::string config;
-  std::shared_ptr<osmlr::output::output> output_tiles, output_geojson;
-
-  bpo::options_description options("valhalla_run_route " VERSION "\n"
+  bpo::options_description options("osmlr " VERSION "\n"
                                      "\n"
                                      " Usage: osmlr [options]\n"
                                      "\n"
@@ -225,16 +221,19 @@ int main(int argc, char** argv) {
                                      "\n"
                                    "\n");
 
+  // Parse options
+  unsigned int max_level, max_fds;
+  std::string config;
+  std::string osmlr_dir, geojson_dir;
   options.add_options()
     ("help,h", "Print this help message.")
     ("version,v", "Print the version of this software.")
     ("max-level,m", bpo::value<unsigned int>(&max_level)->default_value(255), "Maximum level to evaluate")
     ("max-fds", bpo::value<unsigned int>(&max_fds)->default_value(512), "Maximum number of files to have open in each output.")
-    ("output-tiles,T", bpo::value<std::string>(), "Optional. If set, the base path to use when outputting OSMLR tiles.")
-    ("output-geojson,J", bpo::value<std::string>(), "Optional. If set, the base path to use when outputting GeoJSON tiles.")
+    ("output-tiles,T", bpo::value<std::string>(&osmlr_dir), "Required. The base path to use when outputting OSMLR tiles.")
+    ("output-geojson,J", bpo::value<std::string>(&geojson_dir), "Required. The base path to use when outputting GeoJSON tiles.")
     // positional arguments
     ("config", bpo::value<std::string>(&config), "Valhalla configuration file [required]");
-
 
   bpo::positional_options_description pos_options;
   pos_options.add("config", 1);
@@ -258,6 +257,16 @@ int main(int argc, char** argv) {
   if (vm.count("version")) {
     std::cout << "osmlr " << VERSION << "\n";
     return EXIT_SUCCESS;
+  }
+
+  // Make sure both output directories are present
+  if (osmlr_dir.empty()) {
+    LOG_ERROR("Must specify an output directory for OSMLR tiles");
+    return EXIT_FAILURE;
+  }
+  if (geojson_dir.empty()) {
+    LOG_ERROR("Must specify an output directory for GeoJSON tiles");
+    return EXIT_FAILURE;
   }
 
   //parse the config
@@ -286,37 +295,29 @@ int main(int argc, char** argv) {
     }
   }
 
-  if (vm.count("output-tiles")) {
-    std::string dir = vm["output-tiles"].as<std::string>();
-    output_tiles = std::make_shared<osmlr::output::tiles>(reader, dir, max_fds,
-                           creation_date, osm_changeset_id);
+  // Create output for OSMLR (pbf) and GeoJSON tiles
+  std::shared_ptr<osmlr::output::output> output_tiles, output_geojson;
+  output_tiles = std::make_shared<osmlr::output::tiles>(reader, osmlr_dir, max_fds,
+                             creation_date, osm_changeset_id);
+  output_geojson = std::make_shared<osmlr::output::geojson>(reader, geojson_dir, max_fds,
+                             creation_date, osm_changeset_id);
+  if (!output_tiles || !output_geojson) {
+    LOG_ERROR("Error creating output - exiting");
+    return EXIT_FAILURE;
   }
 
-  if (vm.count("output-geojson")) {
-    std::string dir = vm["output-geojson"].as<std::string>();
-    output_geojson = std::make_shared<osmlr::output::geojson>(reader, dir, max_fds,
-                           creation_date, osm_changeset_id);
-  }
-
+  // Merge edges to create OSMLR segments. Output to both pbf and GeoJSON
   vb::merge::merge(
     filtered_tiles, reader, allow_merge_pred, allow_edge_pred,
     [&](const vb::merge::path &p) {
       if (check_access(reader, p)) {
-        if (output_tiles) {
-          output_tiles->add_path(p);
-        }
-        if (output_geojson) {
-          output_geojson->add_path(p);
-        }
+        output_tiles->add_path(p);
+        output_geojson->add_path(p);
       }
     });
 
-  if (output_tiles) {
-    output_tiles->finish();
-  }
-  if (output_geojson) {
-    output_geojson->finish();
-  }
+  output_tiles->finish();
+  output_geojson->finish();
   LOG_INFO("Done");
   return EXIT_SUCCESS;
 }
