@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include <valhalla/midgard/logging.h>
+#include <valhalla/midgard/util.h>
 #include <valhalla/baldr/graphreader.h>
 #include <valhalla/baldr/tilehierarchy.h>
 #include <osmlr/util/tile_writer.hpp>
