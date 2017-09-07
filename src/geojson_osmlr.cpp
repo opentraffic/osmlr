@@ -114,7 +114,7 @@ const vb::DirectedEdge* follow_segment(const vb::TrafficSegment& seg,
 
         // Append shape, trim if needed
         if (next_seg.begin_percent_ > 0.0f || next_seg.end_percent_ < 1.0f) {
-          auto partial_shape = vm::trim_polyline(next_shape.begin(), next_shape.end(),
+          auto partial_shape = trim_polyline(next_shape.begin(), next_shape.end(),
                       next_seg.begin_percent_, next_seg.end_percent_);
           std::copy(partial_shape.begin(), partial_shape.end(), std::back_inserter(shape));
         } else {
@@ -231,7 +231,7 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
           if (seg.starts_segment_ && seg.ends_segment_) {
             // Segment lies fully on this edge. Get the partial shape along the
             // edge for this segment
-            auto partial_shape = vm::trim_polyline(shape.begin(), shape.end(), seg.begin_percent_, seg.end_percent_);
+            auto partial_shape = trim_polyline(shape.begin(), shape.end(), seg.begin_percent_, seg.end_percent_);
             output_segment(out, first, seg.segment_id_, edge, partial_shape);
           } else {
             // THIS SHOULD NOT OCCUR!
