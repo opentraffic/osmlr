@@ -14,7 +14,8 @@ namespace util {
 tile_writer::tile_writer(std::string base_dir, std::string suffix, size_t max_fds)
   : m_base_dir(base_dir)
   , m_suffix(suffix)
-  , m_max_fds(max_fds) {
+  , m_max_fds(max_fds)
+  , m_max_lru(0) {
   if (bfs::exists(base_dir) && !bfs::is_empty(base_dir)) {
     LOG_WARN("Non-empty " + base_dir + " will be purged of data.");
     bfs::remove_all(base_dir);

@@ -44,10 +44,14 @@ src/proto/%.pb.cc: proto/%.proto
 	@echo "PROTOC $<"; mkdir -p src/proto include/proto; @PROTOC_BIN@ -Iproto --cpp_out=include/proto $< && mv include/proto/$(@F) src/proto
 
 #distributed executables
-bin_PROGRAMS = osmlr
+bin_PROGRAMS = osmlr geojson_osmlr
 osmlr_SOURCES = src/osmlr.cpp src/proto/segment.pb.cc src/proto/tile.pb.cc src/output/output.cpp src/output/geojson.cpp src/output/tiles.cpp src/util/tile_writer.cpp
 osmlr_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_DEPS_CFLAGS) @BOOST_CPPFLAGS@
 osmlr_LDADD = $(DEPS_LIBS) $(VALHALLA_DEPS_LIBS) $(BOOST_PROGRAM_OPTIONS_LIB) $(BOOST_FILESYSTEM_LIB) $(BOOST_SYSTEM_LIB) $(BOOST_THREAD_LIB)
+geojson_osmlr_SOURCES = src/geojson_osmlr.cpp src/proto/segment.pb.cc src/proto/tile.pb.cc src/util/tile_writer.cpp
+geojson_osmlr_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_DEPS_CFLAGS) @BOOST_CPPFLAGS@
+geojson_osmlr_LDADD = $(DEPS_LIBS) $(VALHALLA_DEPS_LIBS) $(BOOST_PROGRAM_OPTIONS_LIB) $(BOOST_FILESYSTEM_LIB) $(BOOST_SYSTEM_LIB) $(BOOST_THREAD_LIB)
+
 
 # tests
 #check_PROGRAMS = test/something
