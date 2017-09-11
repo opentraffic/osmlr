@@ -198,16 +198,8 @@ void geojson::output_segment(const vb::merge::path &p) {
       << "\"osmlr_id\":" << osmlr_id.value << ","
       << "\"best_frc\":\"" << vb::to_string(best_frc) << "\","
       << "\"oneway\":" << oneway << ","
-      << "\"drive_on_right\":" << drive_on_right << ","
-      << "\"original_edges\":\"";
-
-  first = true;
-  for (auto edge_id : p.m_edges) {
-    if (first) { first = false; } else { out << ", "; }
-    out << edge_id;
-  }
-
-  out << "\"}}";
+      << "\"drive_on_right\":" << drive_on_right;
+  out << "}}";
 
   m_writer.write_to(tile_id, out.str());
   tile_path_itr->second += 1;
@@ -218,7 +210,7 @@ void geojson::output_segment(const std::vector<vm::PointLL>& shape,
                              const vb::DirectedEdge* edge,
                              const vb::GraphId& edgeid) {
   std::ostringstream out;
-  out.precision(17);
+  out.precision(9);
 
   auto tile_id = edgeid.Tile_Base();
 
