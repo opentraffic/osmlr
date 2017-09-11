@@ -179,7 +179,7 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
 
     // Create the GeoJSON output stream
     std::ostringstream out;
-    out.precision(17);
+    out.precision(9);
     out << "{\"type\":\"FeatureCollection\",\"properties\":{"
         << "\"creation_time\":" << creation_date << ","
         << "\"creation_date\":\"" << date_str << "\","
