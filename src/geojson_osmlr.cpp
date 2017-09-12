@@ -64,7 +64,7 @@ void output_segment(std::ostringstream& out,
 
   bool oneway = (edge->reverseaccess() & vb::kVehicularAccess) == 0;
   out << "]},\"properties\":{"
-     << "\"tile_id\":" << osmlr_id.tileid() << ","
+      << "\"tile_id\":" << osmlr_id.tileid() << ","
       << "\"level\":" << osmlr_id.level() << ","
       << "\"id\":" << osmlr_id.id() << ","
       << "\"osmlr_id\":" << osmlr_id.value << ","
