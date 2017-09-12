@@ -155,15 +155,14 @@ void geojson::output_segment(const vb::merge::path &p) {
   }
 
   out << "{\"type\":\"Feature\",\"geometry\":";
-  out << "{\"type\":\"MultiLineString\",\"coordinates\":[";
+  out << "{\"type\":\"LineString\",\"coordinates\":[";
 
-  bool first = true;
+  bool first_pt = true;
   bool oneway = false;
   bool drive_on_right = false;
   vb::RoadClass best_frc = vb::RoadClass::kServiceOther;
+  vm::PointLL prev_pt;
   for (auto edge_id : p.m_edges) {
-    if (first) { first = false; } else { out << ","; };
-
     const auto *tile = m_reader.GetGraphTile(edge_id);
     const auto* directededge = tile->directededge(edge_id);
     oneway = is_oneway(directededge);
@@ -180,13 +179,14 @@ void geojson::output_segment(const vb::merge::path &p) {
     }
 
     // Serialize the shape
-    out << "[";
-    bool first_pt = true;
     for (const auto& pt : shape) {
+      if (pt == prev_pt) {
+        continue;
+      }
       if (first_pt) { first_pt = false; } else { out << ","; }
       out << "[" << pt.lng() << "," << pt.lat() << "]";
+      prev_pt = pt;
     }
-    out << "]";
   }
 
   // Add properties for this OSMLR segment
@@ -219,6 +219,7 @@ void geojson::output_segment(const std::vector<vm::PointLL>& shape,
     out << "{\"type\":\"FeatureCollection\",\"properties\":{"
         << "\"creation_time\":" << m_creation_date << ","
         << "\"creation_date\":\"" << m_date_str << "\","
+        << "\"description\":\"" << tile_id << "\","
         << "\"changeset_id\":" << m_osm_changeset_id << "},";
     out << "\"features\":[";
     std::tie(tile_path_itr, std::ignore) = m_tile_path_ids.emplace(tile_id, 0);
@@ -227,14 +228,13 @@ void geojson::output_segment(const std::vector<vm::PointLL>& shape,
   }
 
   out << "{\"type\":\"Feature\",\"geometry\":";
-  out << "{\"type\":\"MultiLineString\",\"coordinates\":[";
-  out << "[";
+  out << "{\"type\":\"LineString\",\"coordinates\":[";
+
   bool first_pt = true;
   for (const auto pt : shape) {
     if (first_pt) { first_pt = false; } else { out << ","; }
     out << "[" << pt.lng() << "," << pt.lat() << "]";
   }
-  out << "]";
 
   vb::GraphId osmlr_id(tile_id.tileid(), tile_id.level(), tile_path_itr->second);
   bool first = true;

@@ -53,7 +53,7 @@ void output_segment(std::ostringstream& out,
   }
   first = false;
   out << "{\"type\":\"Feature\",\"geometry\":";
-  out << "{\"type\":\"MultiLineString\",\"coordinates\":[";
+  out << "{\"type\":\"LineString\",\"coordinates\":[";
   out << "[";
   bool first_pt = true;
   for (const auto pt : shape) {
@@ -64,7 +64,7 @@ void output_segment(std::ostringstream& out,
 
   bool oneway = (edge->reverseaccess() & vb::kVehicularAccess) == 0;
   out << "]},\"properties\":{"
-      << "\"tile_id\":" << osmlr_id.tileid() << ","
+     << "\"tile_id\":" << osmlr_id.tileid() << ","
       << "\"level\":" << osmlr_id.level() << ","
       << "\"id\":" << osmlr_id.id() << ","
       << "\"osmlr_id\":" << osmlr_id.value << ","
@@ -117,9 +117,17 @@ const vb::DirectedEdge* follow_segment(const vb::TrafficSegment& seg,
         if (next_seg.begin_percent_ > 0.0f || next_seg.end_percent_ < 1.0f) {
           auto partial_shape = vm::trim_polyline(next_shape.begin(), next_shape.end(),
                       next_seg.begin_percent_, next_seg.end_percent_);
-          std::copy(partial_shape.begin(), partial_shape.end(), std::back_inserter(shape));
+          if (partial_shape.front() == shape.back()) {
+            std::copy(partial_shape.begin()+1, partial_shape.end(), std::back_inserter(shape));
+          } else {
+            std::copy(partial_shape.begin(), partial_shape.end(), std::back_inserter(shape));
+          }
         } else {
-          std::copy(next_shape.begin(), next_shape.end(), std::back_inserter(shape));
+          if (next_shape.front() == shape.back()) {
+            std::copy(next_shape.begin()+1, next_shape.end(), std::back_inserter(shape));
+          } else {
+            std::copy(next_shape.begin(), next_shape.end(), std::back_inserter(shape));
+          }
         }
 
         // Matched segment has been found. Return nullptr if this edge ends
@@ -183,6 +191,7 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
     out << "{\"type\":\"FeatureCollection\",\"properties\":{"
         << "\"creation_time\":" << creation_date << ","
         << "\"creation_date\":\"" << date_str << "\","
+        << "\"description\":\"" << tile_id << "\","
         << "\"changeset_id\":" << osm_changeset_id << "},";
     out << "\"features\":[";
 
