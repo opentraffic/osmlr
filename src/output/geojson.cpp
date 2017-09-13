@@ -192,8 +192,6 @@ void geojson::output_segment(const vb::merge::path &p) {
   // Add properties for this OSMLR segment
   vb::GraphId osmlr_id(tile_id.tileid(), tile_id.level(), tile_path_itr->second);
   out << "]},\"properties\":{"
-      << "\"tile_id\":" << tile_id.tileid() << ","
-      << "\"level\":" << tile_id.level() << ","
       << "\"id\":" << tile_path_itr->second << ","
       << "\"osmlr_id\":" << osmlr_id.value << ","
       << "\"best_frc\":\"" << vb::to_string(best_frc) << "\","
@@ -238,21 +236,13 @@ void geojson::output_segment(const std::vector<vm::PointLL>& shape,
 
   vb::GraphId osmlr_id(tile_id.tileid(), tile_id.level(), tile_path_itr->second);
   bool first = true;
-  bool oneway = is_oneway(edge);
-  bool drive_on_right = edge->drive_on_right();
-  vb::RoadClass best_frc = edge->classification();
   out << "]},\"properties\":{"
-      << "\"tile_id\":" << tile_id.tileid() << ","
-      << "\"level\":" << tile_id.level() << ","
       << "\"id\":" << tile_path_itr->second << ","
       << "\"osmlr_id\":" << osmlr_id.value << ","
-      << "\"best_frc\":\"" << vb::to_string(best_frc) << "\","
-      << "\"oneway\":" << oneway << ","
-      << "\"drive_on_right\":" << drive_on_right << ","
-      << "\"original_edges\":\"";
-
-  out << edgeid;
-  out << "\"}}";
+      << "\"best_frc\":\"" << vb::to_string(edge->classification()) << "\","
+      << "\"oneway\":" << is_oneway(edge) << ","
+      << "\"drive_on_right\":" << edge->drive_on_right();
+  out << "}}";
 
   m_writer.write_to(tile_id, out.str());
   tile_path_itr->second += 1;
