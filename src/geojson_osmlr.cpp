@@ -53,19 +53,15 @@ void output_segment(std::ostringstream& out,
   }
   first = false;
   out << "{\"type\":\"Feature\",\"geometry\":";
-  out << "{\"type\":\"MultiLineString\",\"coordinates\":[";
-  out << "[";
+  out << "{\"type\":\"LineString\",\"coordinates\":[";
   bool first_pt = true;
   for (const auto pt : shape) {
     if (first_pt) { first_pt = false; } else { out << ","; }
     out << "[" << pt.lng() << "," << pt.lat() << "]";
   }
-  out << "]";
 
   bool oneway = (edge->reverseaccess() & vb::kVehicularAccess) == 0;
   out << "]},\"properties\":{"
-      << "\"tile_id\":" << osmlr_id.tileid() << ","
-      << "\"level\":" << osmlr_id.level() << ","
       << "\"id\":" << osmlr_id.id() << ","
       << "\"osmlr_id\":" << osmlr_id.value << ","
       << "\"best_frc\":\"" << vb::to_string(edge->classification()) << "\","
@@ -117,9 +113,17 @@ const vb::DirectedEdge* follow_segment(const vb::TrafficSegment& seg,
         if (next_seg.begin_percent_ > 0.0f || next_seg.end_percent_ < 1.0f) {
           auto partial_shape = vm::trim_polyline(next_shape.begin(), next_shape.end(),
                       next_seg.begin_percent_, next_seg.end_percent_);
-          std::copy(partial_shape.begin(), partial_shape.end(), std::back_inserter(shape));
+          if (partial_shape.front() == shape.back()) {
+            std::copy(partial_shape.begin()+1, partial_shape.end(), std::back_inserter(shape));
+          } else {
+            std::copy(partial_shape.begin(), partial_shape.end(), std::back_inserter(shape));
+          }
         } else {
-          std::copy(next_shape.begin(), next_shape.end(), std::back_inserter(shape));
+          if (next_shape.front() == shape.back()) {
+            std::copy(next_shape.begin()+1, next_shape.end(), std::back_inserter(shape));
+          } else {
+            std::copy(next_shape.begin(), next_shape.end(), std::back_inserter(shape));
+          }
         }
 
         // Matched segment has been found. Return nullptr if this edge ends
@@ -177,12 +181,24 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
     std::string date_str = std::string(mbstr);
     uint64_t osm_changeset_id = pbf_tile.changeset_id();
 
+    // Create a map of valid Ids within this tile - we will record those that
+    // we find in the traffic-enabled Valhalla tile
+    uint32_t id = 0;
+    std::unordered_map<uint32_t, bool> segment_map;
+    for (const auto& entry : pbf_tile.entries()) {
+      if (entry.has_segment()) {
+        segment_map[id] = false;
+      }
+      id++;
+    }
+
     // Create the GeoJSON output stream
     std::ostringstream out;
     out.precision(9);
     out << "{\"type\":\"FeatureCollection\",\"properties\":{"
         << "\"creation_time\":" << creation_date << ","
         << "\"creation_date\":\"" << date_str << "\","
+        << "\"description\":\"" << tile_id << "\","
         << "\"changeset_id\":" << osm_changeset_id << "},";
     out << "\"features\":[";
 
@@ -209,6 +225,7 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
             seg.ends_segment_   && seg.end_percent_   == 1.0f) {
           // Output full segment along this edge
           output_segment(out, first, seg.segment_id_, edge, shape);
+          segment_map[seg.segment_id_.id()] = true;
         } else {
           if (seg.starts_segment_) {
             if (seg.end_percent_ == 1.0f) {
@@ -218,6 +235,7 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
                 ;
               }
               output_segment(out, first, seg.segment_id_, first_edge, shape);
+              segment_map[seg.segment_id_.id()] = true;
             } else {
               // Should not see partial, single edges that are not part of a chunk
               LOG_ERROR("Single partial segment starts on this edge but does not use entire edge?");
@@ -234,6 +252,7 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
             // edge for this segment
             auto partial_shape = vm::trim_polyline(shape.begin(), shape.end(), seg.begin_percent_, seg.end_percent_);
             output_segment(out, first, seg.segment_id_, edge, partial_shape);
+            segment_map[seg.segment_id_.id()] = true;
           } else {
             // THIS SHOULD NOT OCCUR!
             LOG_ERROR("Chunk that does not begin and end a segment");
@@ -245,6 +264,19 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
     // Output to file
     out << "]}";
     writer.write_to(tile_id, out.str());
+
+    // Log statistics for this tile
+    uint32_t found = 0;
+    for (const auto& seg : segment_map) {
+      if (seg.second) {
+        found++;
+      }
+    }
+    if (found != segment_map.size()) {
+      LOG_INFO("Tile: " + std::to_string(tile_id.level()) + "/" + std::to_string(tile_id.tileid()) +
+             " Found " + std::to_string(found) + " of " + std::to_string(segment_map.size()) +
+             " OSMLR segments");
+    }
   }
 }
 
@@ -361,7 +393,7 @@ int main(int argc, char** argv) {
     thread->join();
   }
 /*
-  // Check all of the outcomes, to see about maximum density (km/km2)
+  // Check all of the outcomes
   enhancer_stats stats{std::numeric_limits<float>::min(), 0};
   for (auto& result : results) {
     // If something bad went down this will rethrow it
