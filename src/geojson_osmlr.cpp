@@ -87,12 +87,19 @@ const vb::DirectedEdge* follow_segment(const vb::TrafficSegment& seg,
   uint32_t start_index = node->edge_index();
   uint32_t end_index = start_index + node->edge_count();
   for (uint32_t n = start_index; n < end_index; ++n) {
+    // Get the directed edge
+    const vb::DirectedEdge* next_edge = node_tile->directededge(n);
+
+    // Skip a U-turn
+    if (edge->opp_local_idx() == next_edge->localedgeidx()) {
+      continue;
+    }
+
+    // Get traffic segments and see if any of the segments match...
     auto segments = node_tile->GetTrafficSegments(n);
     if (segments.empty()) {
       continue;
     }
-
-    // Check if any of these segments match...
     for (auto& next_seg : segments) {
       if (next_seg.segment_id_ == seg.segment_id_) {
         // Error if this edge starts this segment!
@@ -101,8 +108,7 @@ const vb::DirectedEdge* follow_segment(const vb::TrafficSegment& seg,
           return nullptr;
         }
 
-        // Get the directed edge and the shape
-        const vb::DirectedEdge* next_edge = node_tile->directededge(n);
+        // Get the edge shape
         auto edgeinfo_offset = next_edge->edgeinfo_offset();
         std::vector<vm::PointLL> next_shape = node_tile->edgeinfo(edgeinfo_offset).shape();
         if (!next_edge->forward()) {
@@ -161,7 +167,7 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
 
     // Get a Valhalla tile. If the tile is empty, skip it.
     const vb::GraphTile* tile = reader.GetGraphTile(tile_id);
-    if (tile->header()->directededgecount() == 0) {
+    if (!tile || tile->header()->directededgecount() == 0) {
       continue;
     }
 
@@ -218,7 +224,6 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
       if (!edge->forward()) {
         std::reverse(shape.begin(), shape.end());
       }
-
       if (segments.size() == 1) {
         const auto& seg = segments.front();
         if (seg.starts_segment_ && seg.begin_percent_ == 0.0f &&
@@ -230,12 +235,17 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
           if (seg.starts_segment_) {
             if (seg.end_percent_ == 1.0f) {
               // Segment starts on this edge and uses the entire edge.
+              int n = 0;
               const vb::DirectedEdge* first_edge = edge;
-              while ((edge = follow_segment(seg, shape, edge, tile, reader)) != nullptr) {
+              while ((edge = follow_segment(seg, shape, edge, tile, reader)) != nullptr && n++ < 100) {
                 ;
               }
-              output_segment(out, first, seg.segment_id_, first_edge, shape);
-              segment_map[seg.segment_id_.id()] = true;
+              if (n >= 100) {
+                printf("Follow XXX iterations?\n");
+              } else {
+                output_segment(out, first, seg.segment_id_, first_edge, shape);
+                segment_map[seg.segment_id_.id()] = true;
+              }
             } else {
               // Should not see partial, single edges that are not part of a chunk
               LOG_ERROR("Single partial segment starts on this edge but does not use entire edge?");
@@ -276,6 +286,11 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
       LOG_INFO("Tile: " + std::to_string(tile_id.level()) + "/" + std::to_string(tile_id.tileid()) +
              " Found " + std::to_string(found) + " of " + std::to_string(segment_map.size()) +
              " OSMLR segments");
+    }
+
+    // Clear GraphReader cache if needed
+    if (reader.OverCommitted()) {
+      reader.Clear();
     }
   }
 }
@@ -372,7 +387,7 @@ int main(int argc, char** argv) {
   std::mutex lock;
 
   // Create tile writer support
-  util::tile_writer writer(output_dir, "json", 256);
+  util::tile_writer writer(output_dir, "json", (512 / concurrency));
 
   // Start the threads
   LOG_INFO("Forming GeoJSON for " + std::to_string(tilequeue.size()) + " OSMLR tiles");
