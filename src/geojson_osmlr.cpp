@@ -146,7 +146,7 @@ const vb::DirectedEdge* follow_segment(const vb::TrafficSegment& seg,
  * Create GeoJSON for an OSMLR tile.
  */
 void create_geojson(std::queue<vb::GraphId>& tilequeue,
-                    util::tile_writer& writer,
+                    const std::string& output_dir,
                     const boost::property_tree::ptree& hierarchy_properties,
                     const std::string& osmlr_dir, std::mutex& lock) {
   // Local Graphreader
@@ -273,7 +273,9 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
 
     // Output to file
     out << "]}";
+    util::tile_writer writer(output_dir, "json", 1);
     writer.write_to(tile_id, out.str());
+    writer.close_all();
 
     // Log statistics for this tile
     uint32_t found = 0;
@@ -386,9 +388,6 @@ int main(int argc, char** argv) {
   // An atomic object we can use to do the synchronization
   std::mutex lock;
 
-  // Create tile writer support
-  util::tile_writer writer(output_dir, "json", (512 / concurrency));
-
   // Start the threads
   LOG_INFO("Forming GeoJSON for " + std::to_string(tilequeue.size()) + " OSMLR tiles");
   boost::property_tree::ptree hierarchy_properties = pt.get_child("mjolnir");
@@ -396,7 +395,7 @@ int main(int argc, char** argv) {
     //results.emplace_back();
     thread.reset(new std::thread(create_geojson,
                     std::ref(tilequeue),
-                    std::ref(writer),
+                    std::cref(output_dir),
                     std::cref(hierarchy_properties),
                     std::cref(input_dir),
                     std::ref(lock)));
