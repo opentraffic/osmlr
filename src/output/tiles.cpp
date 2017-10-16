@@ -22,7 +22,7 @@ std::unordered_map<uint32_t, uint32_t> count;
 int shortsegs = 0;
 int longsegs = 0;
 int chunks = 0;
-std::unordered_map<uint32_t, float> accum;
+std::unordered_map<uint32_t, double> accum;
 
 uint16_t bearing(const std::vector<vm::PointLL> &shape) {
   // OpenLR says to use 20m along the edge, but we could use the
