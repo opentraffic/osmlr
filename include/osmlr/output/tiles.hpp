@@ -71,11 +71,12 @@ private:
 
   std::unordered_map<valhalla::baldr::GraphId, uint32_t> m_counts;
 
-  std::vector<lrp> build_segment_descriptor(const valhalla::baldr::merge::path &p);
+  std::vector<lrp> build_segment_descriptor(const valhalla::baldr::merge::path &p,const uint32_t level);
   std::vector<lrp> build_segment_descriptor(const std::vector<valhalla::midgard::PointLL>& shape,
                                             const valhalla::baldr::DirectedEdge* edge,
                                             const bool start_at_node,
-                                            const bool end_at_node);
+                                            const bool end_at_node,
+                                            const uint32_t level);
 };
 
 } // namespace output
