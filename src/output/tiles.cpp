@@ -18,11 +18,11 @@ constexpr uint32_t kMinimumLength = 5;
 constexpr uint32_t kMaximumLength = 1000;
 
 // Local stats for testing
-int count = 0;
+std::unordered_map<uint32_t, uint32_t> count;
 int shortsegs = 0;
 int longsegs = 0;
 int chunks = 0;
-float accum = 0.0f;
+std::unordered_map<uint32_t, double> accum;
 
 uint16_t bearing(const std::vector<vm::PointLL> &shape) {
   // OpenLR says to use 20m along the edge, but we could use the
@@ -218,7 +218,8 @@ void tiles::add_path(const vb::merge::path &p) {
 std::vector<lrp> tiles::build_segment_descriptor(const std::vector<vm::PointLL>& shape,
                                                  const vb::DirectedEdge* edge,
                                                  const bool start_at_node,
-                                                 const bool end_at_node) {
+                                                 const bool end_at_node,
+                                                 const uint32_t level) {
   assert(shape.size() > 0);
 
   std::vector<lrp> seg;
@@ -234,8 +235,8 @@ std::vector<lrp> tiles::build_segment_descriptor(const std::vector<vm::PointLL>&
 
   // Update stats for total, short, and long segments. Add 10 to max segment
   // length to account for roundoff.
-  count++;
-  accum += accumulated_length;
+  count[level] += 1;
+  accum[level] += accumulated_length;
   if (accumulated_length < 25) {
     LOG_ERROR("Build segment for portion of edge: short length = " +
               std::to_string(accumulated_length) + " should not occur");
@@ -251,7 +252,7 @@ std::vector<lrp> tiles::build_segment_descriptor(const std::vector<vm::PointLL>&
 
 // Build segment LRPs for a single segment. The first LRP is at the beginning node of the path
 // and the last LRP is at the end edge in the path
-std::vector<lrp> tiles::build_segment_descriptor(const vb::merge::path &p) {
+std::vector<lrp> tiles::build_segment_descriptor(const vb::merge::path &p, const uint32_t level) {
   assert(p.m_edges.size() > 0);
 
   std::vector<lrp> seg;
@@ -295,8 +296,8 @@ std::vector<lrp> tiles::build_segment_descriptor(const vb::merge::path &p) {
   seg.emplace_back(true, endll, 0, start_frc, start_fow, least_frc, 0);
 
   // Update stats
-  count++;
-  accum += accumulated_length;
+  count[level] += 1;
+  accum[level] += accumulated_length;
   if (accumulated_length < 25) {
     shortsegs++;
   } else if (accumulated_length > kMaximumLength) {
@@ -314,7 +315,7 @@ std::vector<lrp> tiles::build_segment_descriptor(const vb::merge::path &p) {
 // Tile messages to make the full Tile. this means we don't have to track any
 // additional state for each Tile being built.
 void tiles::output_segment(const vb::merge::path &p) {
-  auto lrps = build_segment_descriptor(p);
+  auto lrps = build_segment_descriptor(p, p.m_start.Tile_Base().level());
   output_segment(lrps, p.m_start.Tile_Base());
 }
 
@@ -323,7 +324,7 @@ void tiles::output_segment(const std::vector<vm::PointLL>& shape,
                            const vb::GraphId& edgeid,
                            const bool start_at_node, const bool end_at_node) {
   if (shape.size() > 0) {
-    auto lrps = build_segment_descriptor(shape, edge, start_at_node, end_at_node);
+    auto lrps = build_segment_descriptor(shape, edge, start_at_node, end_at_node, edgeid.level());
     output_segment(lrps, edgeid.Tile_Base());
   } else {
     LOG_ERROR("Skip segment with 0 shape points edge Id: " +
@@ -383,11 +384,19 @@ void tiles::output_segment(std::vector<lrp>& lrps,
 
 void tiles::finish() {
   // Output some simple stats
-  float avg = accum / count;
-  std::cout << "count = " << count << " shortsegs = " << shortsegs <<
+
+  for( const auto& x : count ) {
+    float avg = accum[x.first] / x.second;
+    std::cout << "average length = " << avg << " at level " << x.first << std::endl;
+  }
+
+  for( const auto& x : count ) {
+      std::cout << "count = " << x.second << " at level " << x.first << std::endl;
+  }
+
+  std::cout << " shortsegs = " << shortsegs <<
           " longsegs " << longsegs << std::endl;
   std::cout << "chunks " << chunks << std::endl;
-  std::cout << "average length = " << avg << std::endl;
 
   uint32_t total = 0;
   uint32_t max_count = 0;
