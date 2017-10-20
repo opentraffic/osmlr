@@ -24,7 +24,7 @@ Or, you can always view the [listing of tiles](https://s3.amazonaws.com/osmlr-ti
 
 `Output_Directory`:  This is where the tiles will be created.  NOTE: Output directory will be deleted and recreated.
 
-`Number_of_Processes`:  This is the number of cURL requests that you want to run in parallel.
+`Number_of_Processes`:  This is the number of cURL requests that you want to run in parallel. Start with `1` or `2`; your processor may not be able to handle more concurrently.
 
 `File_Type`: {osmlr|json}: This is the file type that you want to download. To download OSMLR tiles in Protocol Buffer format, specify `osmlr`. To download OSMLR tiles in GeoJSON format, specify `json`.
 
@@ -33,7 +33,7 @@ Or, you can always view the [listing of tiles](https://s3.amazonaws.com/osmlr-ti
 ***Example Usage***:
 
 ```sh
-./download_tiles.sh -74.251961,40.512764,-73.755405,40.903125 https://s3.amazonaws.com/osmlr/v1.1/geojson /data/tiles 5 json false
+./download_tiles.sh -74.251961,40.512764,-73.755405,40.903125 https://s3.amazonaws.com/osmlr/v1.1/geojson /data/tiles 2 json false
 ```
 
 ***Possible Failures***:
