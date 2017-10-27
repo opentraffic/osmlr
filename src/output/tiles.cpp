@@ -191,6 +191,58 @@ void tiles::split_path(const vb::merge::path& p, const uint32_t total_length) {
   }
 }
 
+void tiles::update_tiles(const std::vector<std::string>& tiles) {
+
+  for (const auto& t : tiles) {
+    auto base_id = vb::GraphTile::GetTileId(t);
+
+    if (!m_reader.DoesTileExist(base_id)) {
+      return;
+    }
+
+    // Read the OSMLR tile
+    pbf::Tile tile;
+    {
+      std::ifstream in(t);
+      if (!tile.ParseFromIstream(&in)) {
+        throw std::runtime_error("Unable to parse traffic segment file.");
+      }
+    }
+
+    std::unordered_set<vb::GraphId> traffic_seg;
+    const auto *graph_tile = m_reader.GetGraphTile(base_id);
+    const auto num_edges = graph_tile->header()->directededgecount();
+    vb::GraphId edge_id(base_id.tileid(), base_id.level(), 0);
+    for (uint32_t i = 0; i < num_edges; ++i, ++edge_id) {
+      auto* edge = graph_tile->directededge(edge_id);
+
+      if (edge->traffic_seg()) {
+        std::vector<vb::TrafficSegment> segments = graph_tile->GetTrafficSegments(edge_id);
+        for (const auto& seg : segments) {
+          traffic_seg.emplace(seg.segment_id_);
+        }
+      }
+    }
+
+    //if has_segment and not in set of associated osmlr ids in the valhalla tiles.
+    //call clear_segment
+    //call mutable marker use that marker to set deletion date.
+    for (uint32_t idx = 0; idx < tile.entries_size(); idx++) {
+      auto *entry = tile.mutable_entries(idx);
+      if ( entry->has_segment()) {
+        //build the id based on the base_id and index
+        vb::GraphId seg_id(base_id.tileid(), base_id.level(), idx);
+        if (traffic_seg.find(seg_id) == traffic_seg.end()) {
+          entry->clear_segment();
+          auto *marker = entry->mutable_marker();
+          time_t deletion_date = time(nullptr);
+          marker->set_segment_deleted_date(deletion_date);
+        }
+      }
+    }
+  }
+}
+
 void tiles::add_path(const vb::merge::path &p) {
   // Get the length of the path
   uint32_t total_length = 0;
