@@ -135,6 +135,11 @@ void geojson::split_path(const vb::merge::path& p, const uint32_t total_length) 
   }
 }
 
+
+void geojson::update_tiles(const std::vector<std::string>& tiles) {
+
+}
+
 void geojson::output_segment(const vb::merge::path &p) {
   std::ostringstream out;
   out.precision(9);
