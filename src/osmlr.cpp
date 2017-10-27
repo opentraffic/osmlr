@@ -234,9 +234,9 @@ bool recursive_copy(const bfs::path &src, const bfs::path &dst,
 
     if (bfs::is_directory(src)) {
       bfs::create_directories(dst);
-      for (bfs::directory_entry& item : bfs::directory_iterator(src)) {
-        recursive_copy(item.path(), dst/item.path().filename(), extension);
-      }
+      bfs::directory_iterator dir_itr(src), end_iter;
+      for (; dir_itr != end_iter; ++dir_itr)
+        recursive_copy(dir_itr->path(), dst/dir_itr->path().filename(), extension);
     }
     else if (bfs::is_regular_file(src)) {
       // only grab the files that we want.
