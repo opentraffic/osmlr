@@ -14,6 +14,7 @@ struct output {
 
   virtual void add_path(const valhalla::baldr::merge::path &) = 0;
   virtual void finish() = 0;
+  virtual void update_tiles(const std::vector<std::string>& osmlr_tiles) = 0;
 };
 
 } // namespace output

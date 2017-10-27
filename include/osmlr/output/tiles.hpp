@@ -60,6 +60,7 @@ struct tiles : public output {
                       const valhalla::baldr::GraphId& edgeid,
                       const bool start_at_node, const bool end_at_node);
   void output_segment(std::vector<lrp>& lrps, const valhalla::baldr::GraphId& tile_id);
+  void update_tiles(const std::vector<std::string>& osmlr_tiles);
   void finish();
 
 private:

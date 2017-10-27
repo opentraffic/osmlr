@@ -21,6 +21,7 @@ struct geojson : public output {
                       const valhalla::baldr::DirectedEdge* edge,
                       const valhalla::baldr::GraphId& edgeid);
   void split_path(const valhalla::baldr::merge::path& p, const uint32_t total_length);
+  void update_tiles(const std::vector<std::string>& osmlr_tiles);
   void finish();
 
 private:
