@@ -19,6 +19,9 @@ constexpr uint32_t kMaximumLength = 1000;
 
 // Local stats for testing
 std::unordered_map<uint32_t, uint32_t> count;
+std::unordered_map<uint32_t, uint32_t> still_valid_count;
+std::unordered_map<uint32_t, uint32_t> deprecated_count;
+
 int shortsegs = 0;
 int longsegs = 0;
 int chunks = 0;
@@ -237,7 +240,9 @@ void tiles::update_tiles(const std::vector<std::string>& tiles) {
           auto *marker = entry->mutable_marker();
           time_t deletion_date = time(nullptr);
           marker->set_segment_deleted_date(deletion_date);
+          deprecated_count[base_id.level()]++;
         }
+        else still_valid_count[base_id.level()]++;
       }
     }
   }
@@ -443,7 +448,15 @@ void tiles::finish() {
   }
 
   for( const auto& x : count ) {
-      std::cout << "count = " << x.second << " at level " << x.first << std::endl;
+      std::cout << "merge count = " << x.second << " at level " << x.first << std::endl;
+  }
+
+  for( const auto& x : deprecated_count ) {
+      std::cout << "deprecated count = " << x.second << " at level " << x.first << std::endl;
+  }
+
+  for( const auto& x : still_valid_count ) {
+      std::cout << "still valid count = " << x.second << " at level " << x.first << std::endl;
   }
 
   std::cout << " shortsegs = " << shortsegs <<
@@ -459,7 +472,9 @@ void tiles::finish() {
     total += tile.second;
   }
   std::cout << "Max OSMLR segments within a tile = " << max_count << std::endl;
-  std::cout << "Average OSMLR count per tile = " << (total / m_counts.size()) << std::endl;
+  if (m_counts.size() > 0)
+    std::cout << "Average OSMLR count per tile = " << (total / m_counts.size()) << std::endl;
+
   std::cout << "Tile count = " << m_counts.size() << std::endl;
 
   // because protobuf Tile messages can be concatenated and there's no footer to
