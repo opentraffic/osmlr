@@ -382,10 +382,10 @@ int main(int argc, char** argv) {
     }
 
     std::vector<std::string> osmlr_tiles;
-    auto itr = bfs::recursive_directory_iterator(output_osmlr_dir);
-    auto end = bfs::recursive_directory_iterator();
-    for (; itr != end; ++itr) {
-      auto dir_entry = *itr;
+    auto osmlr_itr = bfs::recursive_directory_iterator(output_osmlr_dir);
+    auto osmlr_end = bfs::recursive_directory_iterator();
+    for (; osmlr_itr != osmlr_end; ++osmlr_itr) {
+      auto dir_entry = *osmlr_itr;
       if (bfs::is_regular_file(dir_entry)) {
         auto ext = dir_entry.path().extension();
         if (ext == ".osmlr") {
@@ -394,6 +394,20 @@ int main(int argc, char** argv) {
       }
     }
     output_tiles->update_tiles(osmlr_tiles);
+
+    std::vector<std::string> geojson_tiles;
+    auto geojson_itr = bfs::recursive_directory_iterator(output_geojson_dir);
+    auto geojson_end = bfs::recursive_directory_iterator();
+    for (; geojson_itr != geojson_end; ++geojson_itr) {
+      auto dir_entry = *geojson_itr;
+      if (bfs::is_regular_file(dir_entry)) {
+        auto ext = dir_entry.path().extension();
+        if (ext == ".json") {
+          geojson_tiles.emplace_back(dir_entry.path().string());
+        }
+      }
+    }
+    //output_geojson->update_tiles(geojson_tiles);
   }
 
   // Merge edges to create OSMLR segments. Output to both pbf and GeoJSON
