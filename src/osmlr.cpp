@@ -30,7 +30,7 @@ namespace bfs = boost::filesystem;
 // internal intersection edge exists.
 bool allow_merge_pred(const vb::DirectedEdge *edge) {
   return (!edge->trans_up() && edge->use() != vb::Use::kFerry &&
-          !edge->roundabout() && !edge->internal() &&
+          !edge->roundabout() && !edge->internal() && !edge->traffic_seg() &&
           !(edge->trans_down() && edge->endnode().level() != 2));
 }
 
@@ -43,7 +43,7 @@ bool allow_edge_pred(const vb::DirectedEdge *edge) {
   return (!edge->trans_up() && !edge->trans_down() && !edge->is_shortcut() &&
            edge->classification() != vb::RoadClass::kServiceOther &&
           (edge->use() == vb::Use::kRoad || edge->use() == vb::Use::kRamp) &&
-          !edge->roundabout() && !edge->internal() &&
+          !edge->roundabout() && !edge->internal() && !edge->traffic_seg() &&
         !((edge->forwardaccess() & vb::kVehicularAccess) == 0 &&
           (edge->reverseaccess() & vb::kVehicularAccess) == 0));
 }
@@ -407,7 +407,7 @@ int main(int argc, char** argv) {
         }
       }
     }
-    //output_geojson->update_tiles(geojson_tiles);
+    output_geojson->update_tiles(geojson_tiles);
   }
 
   // Merge edges to create OSMLR segments. Output to both pbf and GeoJSON
