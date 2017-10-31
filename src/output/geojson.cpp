@@ -1,10 +1,14 @@
 #include "osmlr/output/geojson.hpp"
 #include <valhalla/midgard/util.h>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+#include <boost/property_tree/json_parser.hpp>
 #include <stdexcept>
 #include <iomanip>
 
 namespace vm = valhalla::midgard;
 namespace vb = valhalla::baldr;
+namespace bpt = boost::property_tree;
 
 namespace {
 
@@ -135,9 +139,53 @@ void geojson::split_path(const vb::merge::path& p, const uint32_t total_length) 
   }
 }
 
-
 void geojson::update_tiles(const std::vector<std::string>& tiles) {
 
+  for (const auto& t : tiles) {
+    auto base_id = vb::GraphTile::GetTileId(t);
+
+    if (!m_reader.DoesTileExist(base_id)) {
+      return;
+    }
+
+    std::unordered_set<vb::GraphId> traffic_seg;
+    const auto *graph_tile = m_reader.GetGraphTile(base_id);
+    const auto num_edges = graph_tile->header()->directededgecount();
+    vb::GraphId edge_id(base_id.tileid(), base_id.level(), 0);
+    for (uint32_t i = 0; i < num_edges; ++i, ++edge_id) {
+      auto* edge = graph_tile->directededge(edge_id);
+
+      if (edge->traffic_seg()) {
+        std::vector<vb::TrafficSegment> segments = graph_tile->GetTrafficSegments(edge_id);
+        for (const auto& seg : segments) {
+          traffic_seg.emplace(seg.segment_id_);
+        }
+      }
+    }
+
+    //if has_segment and not in set of associated osmlr ids in the valhalla tiles.
+    //call clear_segment
+    //call mutable marker use that marker to set deletion date.
+    bpt::ptree pt;
+    bpt::read_json(t.c_str(), pt);
+    bool is_updated = false;
+    bpt::ptree features = pt.get_child("features");
+    for(bpt::ptree::iterator iter = features.begin(); iter != features.end();)
+    {
+      vb::GraphId seg_id = vb::GraphId(iter->second.get<uint64_t>("properties.osmlr_id"));
+      if (traffic_seg.find(seg_id) == traffic_seg.end()) {
+        iter = features.erase(iter);
+        is_updated = true;
+      } else iter++;
+    }
+
+    if (is_updated) {
+      //update the json tile
+      std::ostringstream oss;
+      write_json(oss, pt, false);
+      m_writer.write_to(base_id, oss.str());
+    }
+  }
 }
 
 void geojson::output_segment(const vb::merge::path &p) {
