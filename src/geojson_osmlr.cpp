@@ -152,6 +152,9 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
   // Local Graphreader
   vb::GraphReader reader(hierarchy_properties);
 
+  // Create a tile writer
+  util::tile_writer writer(output_dir, "json", 1);
+
   // Iterate through the tiles in the queue and perform enhancements
   while (true) {
     // Get the next tile Id from the queue and get writeable and readable
@@ -273,7 +276,6 @@ void create_geojson(std::queue<vb::GraphId>& tilequeue,
 
     // Output to file
     out << "]}";
-    util::tile_writer writer(output_dir, "json", 1);
     writer.write_to(tile_id, out.str());
     writer.close_all();
 
