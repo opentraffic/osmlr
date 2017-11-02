@@ -194,13 +194,16 @@ void tiles::split_path(const vb::merge::path& p, const uint32_t total_length) {
   }
 }
 
-void tiles::update_tiles(const std::vector<std::string>& tiles) {
+std::unordered_map<valhalla::baldr::GraphId, uint32_t> tiles::update_tiles(
+    const std::vector<std::string>& tiles) {
+
+  std::unordered_map<valhalla::baldr::GraphId, uint32_t> tile_index;
 
   for (const auto& t : tiles) {
     auto base_id = vb::GraphTile::GetTileId(t);
 
     if (!m_reader.DoesTileExist(base_id)) {
-      return;
+      return tile_index;
     }
 
     // Read the OSMLR tile
@@ -227,6 +230,8 @@ void tiles::update_tiles(const std::vector<std::string>& tiles) {
       }
     }
 
+    tile_index.emplace(base_id,tile.entries_size());
+
     //if has_segment and not in set of associated osmlr ids in the valhalla tiles.
     //call clear_segment
     //call mutable marker use that marker to set deletion date.
@@ -246,6 +251,7 @@ void tiles::update_tiles(const std::vector<std::string>& tiles) {
       }
     }
   }
+  return tile_index;
 }
 
 void tiles::add_path(const vb::merge::path &p) {
