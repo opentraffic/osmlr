@@ -218,19 +218,6 @@ bool check_access(vb::GraphReader &reader, const vb::merge::path &p) {
 bool recursive_copy(const bfs::path &src, const bfs::path &dst,
                     const std::string &extension) {
   try {
-    if (bfs::exists(dst)){
-      LOG_WARN("Destination directory " + dst.string() + " already exists.");
-
-      std::string doit;
-      std::cout << "Delete and recreate destination directory " << dst.string() << " [Y|N]?" << std::endl;
-      std::getline(std::cin,doit);
-      boost::algorithm::to_upper(doit);
-      if (doit != "Y")
-        return false;
-
-      bfs::remove_all(dst);
-      bfs::create_directory(dst);
-    }
 
     if (bfs::is_directory(src)) {
       bfs::create_directories(dst);
@@ -305,7 +292,8 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  if (vm.count("update")) {
+  bool is_update = vm.count("update") ? true : false;
+  if (is_update) {
     // Make sure both input directories are present
     if (input_osmlr_dir.empty() || input_osmlr_dir == "--config") {
       LOG_ERROR("Must specify an input directory for OSMLR tiles");
@@ -366,17 +354,15 @@ int main(int argc, char** argv) {
   output_tiles = std::make_shared<osmlr::output::tiles>(reader, output_osmlr_dir, max_fds,
                              creation_date, osm_changeset_id);
 
-  output_geojson = std::make_shared<osmlr::output::geojson>(reader, output_geojson_dir, max_fds,
-                             creation_date, osm_changeset_id);
-  if (!output_tiles || !output_geojson) {
+  if (!output_tiles) {
     LOG_ERROR("Error creating output - exiting");
     return EXIT_FAILURE;
   }
 
-  if (vm.count("update")) {
+  std::unordered_map<valhalla::baldr::GraphId, uint32_t> tile_index;
+  if (is_update) {
 
-    if (!recursive_copy(input_osmlr_dir,output_osmlr_dir, ".osmlr") ||
-        !recursive_copy(input_geojson_dir,output_geojson_dir, ".json")) {
+    if (!recursive_copy(input_osmlr_dir,output_osmlr_dir, ".osmlr")) {
       LOG_ERROR("Data copy failed.");
       return EXIT_FAILURE;
     }
@@ -393,7 +379,22 @@ int main(int argc, char** argv) {
         }
       }
     }
-    output_tiles->update_tiles(osmlr_tiles);
+    tile_index = output_tiles->update_tiles(osmlr_tiles);
+  }
+
+  output_geojson = std::make_shared<osmlr::output::geojson>(reader, output_geojson_dir, max_fds,
+                                                            creation_date, osm_changeset_id,
+                                                            tile_index);
+  if (!output_geojson) {
+    LOG_ERROR("Error creating output - exiting");
+    return EXIT_FAILURE;
+  }
+  if (is_update) {
+
+    if (!recursive_copy(input_geojson_dir,output_geojson_dir, ".json")) {
+      LOG_ERROR("Data copy failed.");
+      return EXIT_FAILURE;
+    }
 
     std::vector<std::string> geojson_tiles;
     auto geojson_itr = bfs::recursive_directory_iterator(output_geojson_dir);
