@@ -1,6 +1,7 @@
 #include "osmlr/output/tiles.hpp"
 #include "segment.pb.h"
 #include "tile.pb.h"
+#include <boost/filesystem.hpp>
 #include <valhalla/midgard/logging.h>
 #include <valhalla/midgard/util.h>
 #include <stdexcept>
@@ -8,6 +9,7 @@
 namespace vm = valhalla::midgard;
 namespace vb = valhalla::baldr;
 namespace pbf = opentraffic::osmlr;
+namespace bfs = boost::filesystem;
 
 namespace {
 
@@ -231,7 +233,7 @@ std::unordered_map<valhalla::baldr::GraphId, uint32_t> tiles::update_tiles(
     }
 
     tile_index.emplace(base_id,tile.entries_size());
-
+    bool updated = false;
     //if has_segment and not in set of associated osmlr ids in the valhalla tiles.
     //call clear_segment
     //call mutable marker use that marker to set deletion date.
@@ -246,9 +248,20 @@ std::unordered_map<valhalla::baldr::GraphId, uint32_t> tiles::update_tiles(
           time_t deletion_date = time(nullptr);
           marker->set_segment_deleted_date(deletion_date);
           deprecated_count[base_id.level()]++;
+          updated = true;
         }
         else still_valid_count[base_id.level()]++;
       }
+    }
+
+    if (updated) {
+      //remove the existing tile and write out the updated pbf.
+      bfs::remove(t);
+      std::string buf;
+      if (!tile.SerializeToString(&buf)) {
+        throw std::runtime_error("Unable to serialize Tile message.");
+      }
+      m_writer.write_to(base_id, buf);
     }
   }
   return tile_index;
