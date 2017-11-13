@@ -1,6 +1,7 @@
 #include "osmlr/output/tiles.hpp"
 #include "segment.pb.h"
 #include "tile.pb.h"
+#include <boost/filesystem.hpp>
 #include <valhalla/midgard/logging.h>
 #include <valhalla/midgard/util.h>
 #include <stdexcept>
@@ -8,6 +9,7 @@
 namespace vm = valhalla::midgard;
 namespace vb = valhalla::baldr;
 namespace pbf = opentraffic::osmlr;
+namespace bfs = boost::filesystem;
 
 namespace {
 
@@ -19,6 +21,9 @@ constexpr uint32_t kMaximumLength = 1000;
 
 // Local stats for testing
 std::unordered_map<uint32_t, uint32_t> count;
+std::unordered_map<uint32_t, uint32_t> still_valid_count;
+std::unordered_map<uint32_t, uint32_t> deprecated_count;
+
 int shortsegs = 0;
 int longsegs = 0;
 int chunks = 0;
@@ -189,6 +194,77 @@ void tiles::split_path(const vb::merge::path& p, const uint32_t total_length) {
   if (split_path.m_edges.size() > 0) {
     output_segment(split_path);
   }
+}
+
+std::unordered_map<valhalla::baldr::GraphId, uint32_t> tiles::update_tiles(
+    const std::vector<std::string>& tiles) {
+
+  std::unordered_map<valhalla::baldr::GraphId, uint32_t> tile_index;
+
+  for (const auto& t : tiles) {
+    auto base_id = vb::GraphTile::GetTileId(t);
+
+    if (!m_reader.DoesTileExist(base_id)) {
+      return tile_index;
+    }
+
+    // Read the OSMLR tile
+    pbf::Tile tile;
+    {
+      std::ifstream in(t);
+      if (!tile.ParseFromIstream(&in)) {
+        throw std::runtime_error("Unable to parse traffic segment file.");
+      }
+    }
+
+    std::unordered_set<vb::GraphId> traffic_seg;
+    const auto *graph_tile = m_reader.GetGraphTile(base_id);
+    const auto num_edges = graph_tile->header()->directededgecount();
+    vb::GraphId edge_id(base_id.tileid(), base_id.level(), 0);
+    for (uint32_t i = 0; i < num_edges; ++i, ++edge_id) {
+      auto* edge = graph_tile->directededge(edge_id);
+
+      if (edge->traffic_seg()) {
+        std::vector<vb::TrafficSegment> segments = graph_tile->GetTrafficSegments(edge_id);
+        for (const auto& seg : segments) {
+          traffic_seg.emplace(seg.segment_id_);
+        }
+      }
+    }
+
+    tile_index.emplace(base_id,tile.entries_size());
+    bool updated = false;
+    //if has_segment and not in set of associated osmlr ids in the valhalla tiles.
+    //call clear_segment
+    //call mutable marker use that marker to set deletion date.
+    for (uint32_t idx = 0; idx < tile.entries_size(); idx++) {
+      auto *entry = tile.mutable_entries(idx);
+      if ( entry->has_segment()) {
+        //build the id based on the base_id and index
+        vb::GraphId seg_id(base_id.tileid(), base_id.level(), idx);
+        if (traffic_seg.find(seg_id) == traffic_seg.end()) {
+          entry->clear_segment();
+          auto *marker = entry->mutable_marker();
+          time_t deletion_date = time(nullptr);
+          marker->set_segment_deleted_date(deletion_date);
+          deprecated_count[base_id.level()]++;
+          updated = true;
+        }
+        else still_valid_count[base_id.level()]++;
+      }
+    }
+
+    if (updated) {
+      //remove the existing tile and write out the updated pbf.
+      bfs::remove(t);
+      std::string buf;
+      if (!tile.SerializeToString(&buf)) {
+        throw std::runtime_error("Unable to serialize Tile message.");
+      }
+      m_writer.write_to(base_id, buf);
+    }
+  }
+  return tile_index;
 }
 
 void tiles::add_path(const vb::merge::path &p) {
@@ -391,7 +467,15 @@ void tiles::finish() {
   }
 
   for( const auto& x : count ) {
-      std::cout << "count = " << x.second << " at level " << x.first << std::endl;
+      std::cout << "merge count = " << x.second << " at level " << x.first << std::endl;
+  }
+
+  for( const auto& x : deprecated_count ) {
+      std::cout << "deprecated count = " << x.second << " at level " << x.first << std::endl;
+  }
+
+  for( const auto& x : still_valid_count ) {
+      std::cout << "still valid count = " << x.second << " at level " << x.first << std::endl;
   }
 
   std::cout << " shortsegs = " << shortsegs <<
@@ -407,7 +491,9 @@ void tiles::finish() {
     total += tile.second;
   }
   std::cout << "Max OSMLR segments within a tile = " << max_count << std::endl;
-  std::cout << "Average OSMLR count per tile = " << (total / m_counts.size()) << std::endl;
+  if (m_counts.size() > 0)
+    std::cout << "Average OSMLR count per tile = " << (total / m_counts.size()) << std::endl;
+
   std::cout << "Tile count = " << m_counts.size() << std::endl;
 
   // because protobuf Tile messages can be concatenated and there's no footer to

@@ -13,6 +13,8 @@ struct output {
   virtual ~output();
 
   virtual void add_path(const valhalla::baldr::merge::path &) = 0;
+  virtual std::unordered_map<valhalla::baldr::GraphId, uint32_t> update_tiles(
+      const std::vector<std::string>& tiles) = 0;
   virtual void finish() = 0;
 };
 

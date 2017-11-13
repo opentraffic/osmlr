@@ -3,10 +3,12 @@
 #include <valhalla/baldr/tilehierarchy.h>
 #include <valhalla/baldr/merge.h>
 
+#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/range/adaptor/map.hpp>
+#include <boost/algorithm/string.hpp>
 #include <time.h>
 
 #include "config.h"
@@ -20,6 +22,7 @@ namespace vb = valhalla::baldr;
 namespace bpo = boost::program_options;
 namespace bpt = boost::property_tree;
 namespace bra = boost::adaptors;
+namespace bfs = boost::filesystem;
 
 // Use this method when determining whether edge-merging can occur at a node.
 // Do not allow merging at nodes where a ferry exists or where transitions
@@ -27,7 +30,7 @@ namespace bra = boost::adaptors;
 // internal intersection edge exists.
 bool allow_merge_pred(const vb::DirectedEdge *edge) {
   return (!edge->trans_up() && edge->use() != vb::Use::kFerry &&
-          !edge->roundabout() && !edge->internal() &&
+          !edge->roundabout() && !edge->internal() && !edge->traffic_seg() &&
           !(edge->trans_down() && edge->endnode().level() != 2));
 }
 
@@ -40,7 +43,7 @@ bool allow_edge_pred(const vb::DirectedEdge *edge) {
   return (!edge->trans_up() && !edge->trans_down() && !edge->is_shortcut() &&
            edge->classification() != vb::RoadClass::kServiceOther &&
           (edge->use() == vb::Use::kRoad || edge->use() == vb::Use::kRamp) &&
-          !edge->roundabout() && !edge->internal() &&
+          !edge->roundabout() && !edge->internal() && !edge->traffic_seg() &&
         !((edge->forwardaccess() & vb::kVehicularAccess) == 0 &&
           (edge->reverseaccess() & vb::kVehicularAccess) == 0));
 }
@@ -212,6 +215,33 @@ bool check_access(vb::GraphReader &reader, const vb::merge::path &p) {
   return access & vb::kVehicularAccess;
 }
 
+bool recursive_copy(const bfs::path &src, const bfs::path &dst,
+                    const std::string &extension) {
+  try {
+
+    if (bfs::is_directory(src)) {
+      bfs::create_directories(dst);
+      bfs::directory_iterator dir_itr(src), end_iter;
+      for (; dir_itr != end_iter; ++dir_itr)
+        recursive_copy(dir_itr->path(), dst/dir_itr->path().filename(), extension);
+    }
+    else if (bfs::is_regular_file(src)) {
+      // only grab the files that we want.
+      auto ext = src.extension();
+      if (ext == extension)
+        bfs::copy(src, dst);
+    }
+    else {
+      LOG_ERROR(dst.generic_string() + " not a directory or file");
+      return false;
+    }
+  } catch (boost::filesystem::filesystem_error const & e) {
+    std::cerr << "Exception checking or creating directories or files " << e.what() << std::endl;
+    return false;
+  }
+  return true;
+}
+
 int main(int argc, char** argv) {
   bpo::options_description options("osmlr " VERSION "\n"
                                      "\n"
@@ -224,14 +254,17 @@ int main(int argc, char** argv) {
   // Parse options
   unsigned int max_level, max_fds;
   std::string config;
-  std::string osmlr_dir, geojson_dir;
+  std::string input_osmlr_dir, input_geojson_dir, output_osmlr_dir, output_geojson_dir;
   options.add_options()
+    ("input-tiles,P", bpo::value<std::string>(&input_osmlr_dir), "Required for update. The base path to use when inputting OSMLR tiles.")
+    ("input-geojson,G", bpo::value<std::string>(&input_geojson_dir), "Required for update. The base path to use when inputting GeoJSON tiles.")
     ("help,h", "Print this help message.")
     ("version,v", "Print the version of this software.")
     ("max-level,m", bpo::value<unsigned int>(&max_level)->default_value(255), "Maximum level to evaluate")
-    ("max-fds", bpo::value<unsigned int>(&max_fds)->default_value(512), "Maximum number of files to have open in each output.")
-    ("output-tiles,T", bpo::value<std::string>(&osmlr_dir), "Required. The base path to use when outputting OSMLR tiles.")
-    ("output-geojson,J", bpo::value<std::string>(&geojson_dir), "Required. The base path to use when outputting GeoJSON tiles.")
+    ("max-fds,f", bpo::value<unsigned int>(&max_fds)->default_value(512), "Maximum number of files to have open in each output.")
+    ("output-tiles,T", bpo::value<std::string>(&output_osmlr_dir), "Required. The base path to use when outputting OSMLR tiles.")
+    ("output-geojson,J", bpo::value<std::string>(&output_geojson_dir), "Required. The base path to use when outputting GeoJSON tiles.")
+    ("update,u", "Optional.  Do you want to update the OSMLR data?")
     // positional arguments
     ("config", bpo::value<std::string>(&config), "Valhalla configuration file [required]");
 
@@ -259,12 +292,33 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
+  bool is_update = vm.count("update") ? true : false;
+  if (is_update) {
+    // Make sure both input directories are present
+    if (input_osmlr_dir.empty() || input_osmlr_dir == "--config") {
+      LOG_ERROR("Must specify an input directory for OSMLR tiles");
+      return EXIT_FAILURE;
+    }
+    if (input_geojson_dir.empty() || input_geojson_dir == "--config") {
+      LOG_ERROR("Must specify an input directory for GeoJSON tiles");
+      return EXIT_FAILURE;
+    }
+
+  } else {
+    std::string doit;
+    std::cout << "Are you sure you want to create new OSMLR data [Y|N]?" << std::endl;
+    std::getline(std::cin,doit);
+    boost::algorithm::to_upper(doit);
+    if (doit != "Y")
+      EXIT_SUCCESS;
+  }
+
   // Make sure both output directories are present
-  if (osmlr_dir.empty()) {
+  if (output_osmlr_dir.empty() || output_osmlr_dir == "--config") {
     LOG_ERROR("Must specify an output directory for OSMLR tiles");
     return EXIT_FAILURE;
   }
-  if (geojson_dir.empty()) {
+  if (output_geojson_dir.empty() || output_geojson_dir == "--config") {
     LOG_ERROR("Must specify an output directory for GeoJSON tiles");
     return EXIT_FAILURE;
   }
@@ -297,13 +351,64 @@ int main(int argc, char** argv) {
 
   // Create output for OSMLR (pbf) and GeoJSON tiles
   std::shared_ptr<osmlr::output::output> output_tiles, output_geojson;
-  output_tiles = std::make_shared<osmlr::output::tiles>(reader, osmlr_dir, max_fds,
+  output_tiles = std::make_shared<osmlr::output::tiles>(reader, output_osmlr_dir, max_fds,
                              creation_date, osm_changeset_id);
-  output_geojson = std::make_shared<osmlr::output::geojson>(reader, geojson_dir, max_fds,
-                             creation_date, osm_changeset_id);
-  if (!output_tiles || !output_geojson) {
+
+  if (!output_tiles) {
     LOG_ERROR("Error creating output - exiting");
     return EXIT_FAILURE;
+  }
+
+  std::unordered_map<valhalla::baldr::GraphId, uint32_t> tile_index;
+  if (is_update) {
+
+    if (!recursive_copy(input_osmlr_dir,output_osmlr_dir, ".osmlr")) {
+      LOG_ERROR("Data copy failed.");
+      return EXIT_FAILURE;
+    }
+
+    std::vector<std::string> osmlr_tiles;
+    auto osmlr_itr = bfs::recursive_directory_iterator(output_osmlr_dir);
+    auto osmlr_end = bfs::recursive_directory_iterator();
+    for (; osmlr_itr != osmlr_end; ++osmlr_itr) {
+      auto dir_entry = *osmlr_itr;
+      if (bfs::is_regular_file(dir_entry)) {
+        auto ext = dir_entry.path().extension();
+        if (ext == ".osmlr") {
+          osmlr_tiles.emplace_back(dir_entry.path().string());
+        }
+      }
+    }
+    tile_index = output_tiles->update_tiles(osmlr_tiles);
+  }
+
+  output_geojson = std::make_shared<osmlr::output::geojson>(reader, output_geojson_dir, max_fds,
+                                                            creation_date, osm_changeset_id,
+                                                            tile_index);
+  if (!output_geojson) {
+    LOG_ERROR("Error creating output - exiting");
+    return EXIT_FAILURE;
+  }
+  if (is_update) {
+
+    if (!recursive_copy(input_geojson_dir,output_geojson_dir, ".json")) {
+      LOG_ERROR("Data copy failed.");
+      return EXIT_FAILURE;
+    }
+
+    std::vector<std::string> geojson_tiles;
+    auto geojson_itr = bfs::recursive_directory_iterator(output_geojson_dir);
+    auto geojson_end = bfs::recursive_directory_iterator();
+    for (; geojson_itr != geojson_end; ++geojson_itr) {
+      auto dir_entry = *geojson_itr;
+      if (bfs::is_regular_file(dir_entry)) {
+        auto ext = dir_entry.path().extension();
+        if (ext == ".json") {
+          geojson_tiles.emplace_back(dir_entry.path().string());
+        }
+      }
+    }
+    output_geojson->update_tiles(geojson_tiles);
   }
 
   // Merge edges to create OSMLR segments. Output to both pbf and GeoJSON

@@ -43,8 +43,12 @@ LD_LIBRARY_PATH=/usr/lib:/usr/local/lib osmlr -m 1 -T ${PWD}/osmlr_tiles valhall
 # -j 2 uses two threads for association process (use more or fewer as available cores permit)
 valhalla_associate_segments -t ${PWD}/osmlr_tiles -j 2 --config valhalla.json
 
-# rebuild tar with traffic segement associated tiles
+#rebuild tar with traffic segement associated tiles
 find valhalla_tiles | sort -n | tar rf tiles.tar --no-recursion -T -
+
+#Update OSMLR segments.  
+This will copy your existing pbf and geojson tiles to their equivalent output directories and update the tiles as needed.  Features will be removed add added from the feature collection in the geojson tiles.  Moreover, segements that no longer exist in the valhalla tiles will be cleared and a deletion date will be set. 
+./osmlr -u -m 2 -f 256 -P ./<old_tiles>/pbf -G ./<old_tiles>/geojson -J ./<new_tiles>/geojson -T ./<new_tiles>/pbf --config valhalla.json
 
 #HAVE FUN!
 ```

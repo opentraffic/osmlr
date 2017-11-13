@@ -17,10 +17,10 @@ namespace util {
 struct tile_writer {
   tile_writer(std::string base_dir, std::string suffix, size_t max_fds);
   void write_to(valhalla::baldr::GraphId tile_id, const std::string &data);
+  std::string get_name_for_tile(valhalla::baldr::GraphId tile_id);
   void close_all();
 
 private:
-  std::string get_name_for_tile(valhalla::baldr::GraphId tile_id);
   int get_fd_for(valhalla::baldr::GraphId tile_id);
   int make_fd_for(valhalla::baldr::GraphId tile_id);
   void evict_last_fd();

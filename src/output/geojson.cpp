@@ -1,10 +1,22 @@
 #include "osmlr/output/geojson.hpp"
 #include <valhalla/midgard/util.h>
+#include "segment.pb.h"
+#include "tile.pb.h"
+#include <boost/filesystem.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/regex.hpp>
 #include <stdexcept>
 #include <iomanip>
 
 namespace vm = valhalla::midgard;
 namespace vb = valhalla::baldr;
+namespace bpt = boost::property_tree;
+namespace bfs = boost::filesystem;
+namespace bal = boost::algorithm;
+namespace pbf = opentraffic::osmlr;
 
 namespace {
 
@@ -20,16 +32,26 @@ bool is_oneway(const vb::DirectedEdge *e) {
   return (e->reverseaccess() & vb::kVehicularAccess) == 0;
 }
 
+// writes out numbers without quotes.
+// ptree writes everything out with quotes and we don't want
+// this for json.
+std::string fix_json_numbers(const std::string &json_str) {
+  boost::regex re("\"(-?[0-9]+\\.{0,1}[0-9]*)\"");
+  return  boost::regex_replace(json_str, re, "$1");
+}
+
 } // anonymous namespace
 
 namespace osmlr {
 namespace output {
 
 geojson::geojson(vb::GraphReader &reader, std::string base_dir, size_t max_fds,
-                 time_t creation_date, const uint64_t osm_changeset_id)
+                 time_t creation_date, const uint64_t osm_changeset_id,
+                 const std::unordered_map<valhalla::baldr::GraphId, uint32_t> tile_index)
   : m_osm_changeset_id(osm_changeset_id)
   , m_reader(reader)
-  , m_writer(base_dir, "json", max_fds) {
+  , m_writer(base_dir, "json", max_fds)
+  , m_tile_index(tile_index){
   // Change cration date into string plus int
   m_creation_date = creation_date;
   std::tm tm = *std::gmtime(&creation_date);
@@ -43,6 +65,7 @@ geojson::~geojson() {
 }
 
 void geojson::add_path(const vb::merge::path &p) {
+
   // Get the length of the path
   uint32_t total_length = 0;
   for (auto edge_id : p.m_edges) {
@@ -135,24 +158,117 @@ void geojson::split_path(const vb::merge::path& p, const uint32_t total_length) 
   }
 }
 
+std::unordered_map<valhalla::baldr::GraphId, uint32_t> geojson::update_tiles(
+    const std::vector<std::string>& tiles) {
+
+  for (const auto& t : tiles) {
+
+    auto base_id = vb::GraphTile::GetTileId(t);
+
+    if (!m_reader.DoesTileExist(base_id)) {
+      return m_tile_index;
+    }
+
+    std::unordered_set<vb::GraphId> traffic_seg;
+    const auto *graph_tile = m_reader.GetGraphTile(base_id);
+    const auto num_edges = graph_tile->header()->directededgecount();
+    vb::GraphId edge_id(base_id.tileid(), base_id.level(), 0);
+    for (uint32_t i = 0; i < num_edges; ++i, ++edge_id) {
+      auto* edge = graph_tile->directededge(edge_id);
+
+      if (edge->traffic_seg()) {
+        std::vector<vb::TrafficSegment> segments = graph_tile->GetTrafficSegments(edge_id);
+        for (const auto& seg : segments) {
+          traffic_seg.emplace(seg.segment_id_);
+        }
+      }
+    }
+
+    bpt::ptree pt;
+    bpt::read_json(t.c_str(), pt);
+    bool is_updated = false;
+    bpt::ptree features = pt.get_child("features");
+
+    for(bpt::ptree::iterator iter = features.begin(); iter != features.end();)
+    {
+      vb::GraphId seg_id = vb::GraphId(iter->second.get<uint64_t>("properties.osmlr_id"));
+      if (traffic_seg.find(seg_id) == traffic_seg.end()) {
+        iter = features.erase(iter);
+        is_updated = true;
+      } else iter++;
+    }
+
+    if (is_updated) {
+
+      pt.put_child("features", features);
+      auto tile_index_itr = m_tile_index.find(base_id);
+      if (tile_index_itr != m_tile_index.end()) {
+
+        bfs::remove(t);
+        //add the tileid and index to the map
+        m_tile_path_ids.emplace(base_id, tile_index_itr->second);
+        std::ostringstream oss;
+        oss.precision(9);
+        write_json(oss, pt, false);
+        std::string json = oss.str();
+        // remove the last chars so that we can add to this feature collection.
+        json.erase(json.size()-3, 2);
+        m_writer.write_to(base_id, fix_json_numbers(json));
+      }
+    }
+  }
+
+  return m_tile_index;
+}
+
 void geojson::output_segment(const vb::merge::path &p) {
   std::ostringstream out;
   out.precision(9);
 
   auto tile_id = p.m_start.Tile_Base();
-
   auto tile_path_itr = m_tile_path_ids.find(tile_id);
   if (tile_path_itr == m_tile_path_ids.end()) {
-    out << "{\"type\":\"FeatureCollection\",\"properties\":{"
-        << "\"creation_time\":" << m_creation_date << ","
-        << "\"creation_date\":\"" << m_date_str << "\","
-        << "\"description\":\"" << tile_id << "\","
-        << "\"changeset_id\":" << m_osm_changeset_id << "},";
-    out << "\"features\":[";
-    std::tie(tile_path_itr, std::ignore) = m_tile_path_ids.emplace(tile_id, 0);
-  } else {
-    out << ",";
-  }
+    if (m_tile_index.size()) { // is update?
+      auto tile_index_itr = m_tile_index.find(tile_id);
+      if (tile_index_itr != m_tile_index.end()) {
+        std::string file_name = m_writer.get_name_for_tile(tile_id);
+
+        if (bfs::exists(file_name) && bfs::is_regular_file(file_name)) { //existing file
+
+          //add the tileid and index to the map
+          std::tie(tile_path_itr, std::ignore) = m_tile_path_ids.emplace(tile_id, tile_index_itr->second);
+          bpt::ptree pt;
+          bpt::read_json(file_name.c_str(), pt);
+          std::ostringstream oss;
+
+          write_json(oss, pt, false);
+          std::string json = oss.str();
+          // remove the last chars so that we can add to this feature collection.
+          json.erase(json.size()-3, 2);
+          out << fix_json_numbers(json);
+          out << ",";
+          bfs::remove(file_name);
+
+        } else throw std::runtime_error("Unable to open traffic geojson file. " + file_name); // should never happen
+      } else { // new file
+        out << "{\"type\":\"FeatureCollection\",\"properties\":{"
+            << "\"creation_time\":" << m_creation_date << ","
+            << "\"creation_date\":\"" << m_date_str << "\","
+            << "\"description\":\"" << tile_id << "\","
+            << "\"changeset_id\":" << m_osm_changeset_id << "},";
+        out << "\"features\":[";
+        std::tie(tile_path_itr, std::ignore) = m_tile_path_ids.emplace(tile_id, 0);
+      }
+    } else { // new file
+      out << "{\"type\":\"FeatureCollection\",\"properties\":{"
+          << "\"creation_time\":" << m_creation_date << ","
+          << "\"creation_date\":\"" << m_date_str << "\","
+          << "\"description\":\"" << tile_id << "\","
+          << "\"changeset_id\":" << m_osm_changeset_id << "},";
+      out << "\"features\":[";
+      std::tie(tile_path_itr, std::ignore) = m_tile_path_ids.emplace(tile_id, 0);
+    }
+  } else out << ",";//already in the map
 
   out << "{\"type\":\"Feature\",\"geometry\":";
   out << "{\"type\":\"LineString\",\"coordinates\":[";
@@ -211,19 +327,49 @@ void geojson::output_segment(const std::vector<vm::PointLL>& shape,
   out.precision(9);
 
   auto tile_id = edgeid.Tile_Base();
-
   auto tile_path_itr = m_tile_path_ids.find(tile_id);
   if (tile_path_itr == m_tile_path_ids.end()) {
-    out << "{\"type\":\"FeatureCollection\",\"properties\":{"
-        << "\"creation_time\":" << m_creation_date << ","
-        << "\"creation_date\":\"" << m_date_str << "\","
-        << "\"description\":\"" << tile_id << "\","
-        << "\"changeset_id\":" << m_osm_changeset_id << "},";
-    out << "\"features\":[";
-    std::tie(tile_path_itr, std::ignore) = m_tile_path_ids.emplace(tile_id, 0);
-  } else {
-    out << ",";
-  }
+    if (m_tile_index.size()) { // is update?
+      auto tile_index_itr = m_tile_index.find(tile_id);
+      if (tile_index_itr != m_tile_index.end()) {
+        std::string file_name = m_writer.get_name_for_tile(tile_id);
+
+        if (bfs::exists(file_name) && bfs::is_regular_file(file_name)) { //existing file
+
+          //add the tileid and index to the map
+          std::tie(tile_path_itr, std::ignore) = m_tile_path_ids.emplace(tile_id, tile_index_itr->second);
+          bpt::ptree pt;
+          bpt::read_json(file_name.c_str(), pt);
+
+          std::ostringstream oss;
+          write_json(oss, pt, false);
+          std::string json = oss.str();
+          // remove the last chars so that we can add to this feature collection.
+          json.erase(json.size()-3, 2);
+          out << fix_json_numbers(json);
+          out << ",";
+          bfs::remove(file_name);
+
+        } else throw std::runtime_error("Unable to open traffic geojson file." + file_name); // should never happen
+      } else { // new file
+        out << "{\"type\":\"FeatureCollection\",\"properties\":{"
+            << "\"creation_time\":" << m_creation_date << ","
+            << "\"creation_date\":\"" << m_date_str << "\","
+            << "\"description\":\"" << tile_id << "\","
+            << "\"changeset_id\":" << m_osm_changeset_id << "},";
+        out << "\"features\":[";
+        std::tie(tile_path_itr, std::ignore) = m_tile_path_ids.emplace(tile_id, 0);
+      }
+    } else { // new file
+      out << "{\"type\":\"FeatureCollection\",\"properties\":{"
+          << "\"creation_time\":" << m_creation_date << ","
+          << "\"creation_date\":\"" << m_date_str << "\","
+          << "\"description\":\"" << tile_id << "\","
+          << "\"changeset_id\":" << m_osm_changeset_id << "},";
+      out << "\"features\":[";
+      std::tie(tile_path_itr, std::ignore) = m_tile_path_ids.emplace(tile_id, 0);
+    }
+  } else out << ",";//already in the map
 
   out << "{\"type\":\"Feature\",\"geometry\":";
   out << "{\"type\":\"LineString\",\"coordinates\":[";
