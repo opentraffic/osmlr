@@ -33,7 +33,7 @@ The OSMLR segment migration process proceeds as follows:
 * Identify all OSMLR segments that are associated to the Valhalla routing data. These segments are still valid and remain unchanged with their existing index within the tile remaining unchanged (OSMLR segments are immutable). Skip any previously deprecated OSMLR segments. What remains is the set of OSMLR segments that must be deprecated (they no longer associate to the routing data within specific tolerances). These segments are marked as deprecated/deleted with the date added to specify when the OSMLR segment was deprecated.
 * The OSMLR "creation" process is then run to generate new segments that either replace deprecated segments (if applicable) or identify newly added roads within the data. When creating new segments, any road segment that is already associated to an OSMLR is skipped / disallowed. New segments get sequential Ids within the tile, following all currently existing Ids so there is no collision of Ids within the tile. The new segments also have the date indicating when the segment was added to the OSMLR tile.
 
-As the protocol buffer output is updated, the GeoJSON output is similarly updated.
+As the protocol buffer output is updated, the GeoJSON output is similarly updated by removing the "deleted" or "superseded" features from the featurecollection. New features are appended to the existing feature collection for existing GeoJSON tiles.
 
 ###Common Conditions / Data Changes
 
