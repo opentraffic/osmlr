@@ -6,6 +6,9 @@ The code is open-source for contribution -- but the power of OSMLR comes from ev
 
 ## Using OSMLR segments
 
+- AWS Public Datasets program S3 bucket with OSMLR segments:
+  - S3 bucket name: `osmlr`
+  - file listings: https://s3.amazonaws.com/osmlr/listing.html
 - Related code:
   - [Scripts to download prebuilt OSMLR segment tiles from S3](py/README.md)
   - [OSMLR tile specification](https://github.com/opentraffic/osmlr-tile-spec): Protocol Buffer definition files used by this generator application, as well as consumers of OSMLR segments
