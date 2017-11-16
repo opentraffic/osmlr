@@ -1,19 +1,29 @@
-OSMLR
------
+# OSMLR segment generation application
 
-Applications for generating linear references (traffic segments) given OSM data in the form of Valhalla routing tiles.
+OSMLR segments are used as part of the [OTv2 platform](https://github.com/opentraffic/otv2-platform) to associate traffic speeds and volumes with roadways through a stable set of identifiers. This application is used to generate and update OSMLR segments. It's run approximately once a quarter and the resulting tileset of OSMLR segments are posted to Amazon S3.
 
-Related:
-- [Scripts to download prebuilt OSMLR segment tiles from S3](py/README.md)
-- [OSMLR Tile Specification](https://github.com/opentraffic/osmlr-tile-spec): Protocol Buffer definition files used by this generator application, as well as consumers of OSMLR segments
+The code is open-source for contribution -- but the power of OSMLR comes from everyone using a single canonical tileset produced by this program. In other words, it's recommended that you download existing OSMLR segment tiles from S3, rather than run this application yourself to create your own set.
 
-Build Status
-------------
+## Using OSMLR segments
+
+- Related code:
+  - [Scripts to download prebuilt OSMLR segment tiles from S3](py/README.md)
+  - [OSMLR tile specification](https://github.com/opentraffic/osmlr-tile-spec): Protocol Buffer definition files used by this generator application, as well as consumers of OSMLR segments
+- Documentation:
+  - [Introduction to OSMLR](docs/intro.md)
+  - [Update process](docs/osmlr_updates.md)
+- Blog posts:
+  - [OSMLR hits a "mile marker" (and joins AWS Public Datasets)](https://mapzen.com/blog/osmlr-released-as-public-dataset/)
+  - [Open Traffic technical preview #1: OSMLR segments](https://mapzen.com/blog/open-traffic-osmlr-technical-preview/)
+  - [OSMLR traffic segments for the entire planet](https://mapzen.com/blog/osmlr-2nd-technical-preview/)
+
+## Development of this application
+
+### Build Status
 
 [![Build Status](https://travis-ci.org/opentraffic/osmlr.svg?branch=master)](https://travis-ci.org/opentraffic/osmlr)
 
-Building and Running
---------------------
+### Building and Running
 
 To build, install and run on Ubuntu (or other Debian based systems) try the following bash commands:
 
@@ -52,8 +62,3 @@ This will copy your existing pbf and geojson tiles to their equivalent output di
 
 #HAVE FUN!
 ```
-
-Documentation
--------------
-
-You can find an [introduction](docs/intro.md) to OSMLR and the concepts behind it in the `docs/` directory. If there's something that you've found tricky to understand in OSMLR, then please open an [issue](https://github.com/opentraffic/osmlr/issues/new) and provide as much detail as possible. Or, even better, submit a [pull request with your improvements](https://github.com/opentraffic/osmlr/compare)!
